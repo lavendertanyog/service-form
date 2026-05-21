@@ -75,7 +75,7 @@
     <div class="header">
       <div class="logo"><span class="brand">nextan</span><span>Service Form</span></div>
     </div>
-    <form class="form-panel" id="serviceForm" action="/submit" method="post" enctype="multipart/form-data">
+    <form class="form-panel" id="serviceForm" onsubmit="return false;" enctype="multipart/form-data">
       <div class="form-grid">
         <div class="field half"><label>Job site<span class="required">*</span></label><input type="text" name="jobSite" placeholder="Job site" required /></div>
         <div class="field half"><label>Location<span class="required">*</span></label><input type="text" name="location" placeholder="Location" required /></div>
@@ -91,17 +91,22 @@
         <div class="field half"><label>Invoiceable Service<span class="required">*</span></label><div class="radio-group"><label class="radio-item"><input type="radio" name="invoiceable" value="true" required /><span>Yes</span></label><label class="radio-item"><input type="radio" name="invoiceable" value="false" checked /><span>No</span></label></div></div>
         <div class="field full signature-panel"><label>Customer Signature<span class="required">*</span></label><div class="signature-box"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button type="button" id="clearSignature">Clear</button><span class="helper">Sign inside the box. This signature will be submitted with the form.</span></div></div>
         <input type="hidden" name="signature" id="signatureValue" />
-        <div class="field full"><button type="submit" class="submit-button">Submit the Support Form</button></div>
+        <div class="field full"><button type="submit" class="submit-button" id="submitBtn">Submit the Support Form</button></div>
       </div>
     </form>
   </div>
   <script>
+    // CHANGE THIS TO YOUR EXACT LIVE RAILWAY BASE DOMAIN
+    const BASE_URL = "https://service-form-production.up.railway.app";
+
     const form = document.getElementById('serviceForm');
+    const submitBtn = document.getElementById('submitBtn');
     const canvas = document.getElementById('signatureCanvas');
     const clearSignature = document.getElementById('clearSignature');
     const signatureValue = document.getElementById('signatureValue');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
+    
     const resizeCanvas = () => {
       const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); ctx.lineCap = 'round'; ctx.strokeStyle = '#111827'; ctx.lineWidth = 3;
     };
@@ -119,16 +124,58 @@
     canvas.addEventListener('mousemove', draw); canvas.addEventListener('touchmove', (event) => { draw(event); });
     canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseleave', stopDrawing); canvas.addEventListener('touchend', stopDrawing);
     clearSignature.addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); signatureValue.value = ''; });
-    form.addEventListener('submit', (event) => { signatureValue.value = canvas.toDataURL('image/png'); });
+
+    // Asynchronous Fetch Submission Framework
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      
+      // Lock submit button status animation
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending Document Pack...";
+
+      // Convert Canvas signature lines to compressed image values
+      signatureValue.value = canvas.toDataURL('image/png');
+
+      // Create internal virtual form object multi-part streaming payload
+      const formData = new FormData(form);
+
+      fetch(`${BASE_URL}/submit`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.success) {
+           alert("Success! The service form has been securely dispatched.");
+           form.reset();
+           ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+        } else {
+           alert("Submission Error: " + data.error);
+        }
+      })
+      .catch(err => {
+         console.error("Network Exception Tracker: ", err);
+         alert("Could not reach the server engine. Please check if your Railway app is active.");
+      })
+      .finally(() => {
+         submitBtn.disabled = false;
+         submitBtn.textContent = "Submit the Support Form";
+      });
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
-      fetch('/config').then(res => res.json()).then(config => {
+      fetch(`${BASE_URL}/config`)
+      .then(res => res.json())
+      .then(config => {
         const dropdown = document.getElementById('staffEmailsDropdown');
         if (config.staffOptions && dropdown) {
+          dropdown.innerHTML = '<option value="">Please select</option>'; // Clear default
           config.staffOptions.forEach(email => {
             const opt = document.createElement('option'); opt.value = email; opt.textContent = email; dropdown.appendChild(opt);
           });
         }
-      }).catch(err => console.error("Config load error: ", err));
+      })
+      .catch(err => console.error("Config load error: ", err));
     });
   </script>
 </body>
