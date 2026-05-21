@@ -7,4 +7,4 @@ https://service-form-production.up.railway.app/nextan-service-form.html
 - **Frontend:** Semantic HTML5, CSS3 Grid, JavaScript (Canvas API for digital signatures).
 - **Backend:** Java 17, Spring Boot (REST API framework).
 - **Hosting:** Cloud Deployment containerized via Docker on Railway.
-- **Email Delivery:** SendGrid v3 REST Engine (Secure Port 443 mapping bypass).
+- **Email Delivery:** SendGrid v3 REST Engine.
