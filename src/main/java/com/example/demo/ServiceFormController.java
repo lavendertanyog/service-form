@@ -1,12 +1,9 @@
 package com.example.demo;
 
-import jakarta.mail.internet.MimeMessage;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
@@ -18,11 +15,11 @@ import java.util.zip.ZipOutputStream;
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${SENDGRID_API_KEY:}")
+    private String sendGridApiKey;
 
-    @Value("${spring.mail.username}")
-    private String fromEmail;
+    @Value("${app.default-from}")
+    private String defaultFromEmail;
 
     @Value("${app.finance-emails}")
     private String financeEmailsRaw;
@@ -30,10 +27,12 @@ public class ServiceFormController {
     @Value("${app.staff-emails}")
     private String staffEmailsRaw;
 
+    private final RestTemplate restTemplate = new RestTemplate();
+
     @GetMapping("/config")
     public Map<String, Object> getConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put("defaultFrom", fromEmail);
+        config.put("defaultFrom", defaultFromEmail);
         config.put("financeEmails", parseRecipients(financeEmailsRaw));
         config.put("staffOptions", parseRecipients(staffEmailsRaw));
         return config;
@@ -57,6 +56,12 @@ public class ServiceFormController {
 
         Map<String, Object> response = new HashMap<>();
 
+        if (sendGridApiKey == null || sendGridApiKey.trim().isEmpty()) {
+            response.put("success", false);
+            response.put("error", "Backend Configuration Error: SendGrid API Key is missing on the hosting platform.");
+            return response;
+        }
+
         try {
             List<String> customerEmails = parseRecipients(clientEmails);
             List<String> staffEmailsList = parseRecipients(staffEmails);
@@ -67,23 +72,7 @@ public class ServiceFormController {
                 return response;
             }
 
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setFrom(fromEmail, "Nextan Service Team");
-            helper.setTo(customerEmails.toArray(new String[0]));
-
-            Set<String> ccEmails = new HashSet<>(staffEmailsList);
-            if (invoiceable) {
-                ccEmails.addAll(parseRecipients(financeEmailsRaw));
-            }
-            if (!ccEmails.isEmpty()) {
-                helper.setCc(ccEmails.toArray(new String[0]));
-            }
-
-            helper.setSubject("Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : ""));
-            helper.setText("Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you.");
-
+            // Assemble Text Content Pack
             String summaryText = "==================================================\n" +
                "               NEXTAN SERVICE FORM SUMMARY        \n" +
                "==================================================\n" +
@@ -99,28 +88,92 @@ public class ServiceFormController {
                "--------------------------------------------------\n" +
                "Attending Staff Email  : " + staffEmails + "\n" +
                "Invoiceable Flagged    : " + (invoiceable ? "YES" : "NO") + "\n" +
-               "==================================================";
+               "==================================================\n";
 
-            helper.addAttachment("service-form-summary.txt", new ByteArrayResource(summaryText.getBytes()));
+            // Prepare SendGrid Request Body
+            Map<String, Object> requestBody = new HashMap<>();
+            
+            // Personalizations (To, CC)
+            List<Map<String, Object>> personalizations = new ArrayList<>();
+            Map<String, Object> personalization = new HashMap<>();
+            
+            List<Map<String, String>> toList = new ArrayList<>();
+            for (String email : customerEmails) {
+                toList.add(Map.of("email", email));
+            }
+            personalization.put("to", toList);
 
+            List<Map<String, String>> ccList = new ArrayList<>();
+            for (String email : staffEmailsList) {
+                ccList.add(Map.of("email", email));
+            }
+            if (invoiceable) {
+                for (String email : parseRecipients(financeEmailsRaw)) {
+                    ccList.add(Map.of("email", email));
+                }
+            }
+            if (!ccList.isEmpty()) {
+                personalization.put("cc", ccList);
+            }
+            personalizations.add(personalization);
+            requestBody.put("personalizations", personalizations);
+
+            // Metadata Subject Line
+            String subject = "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : "");
+            requestBody.put("subject", subject);
+
+            // Verified From Sender Identity
+            requestBody.put("from", Map.of("email", defaultFromEmail, "name", "Nextan Service Team"));
+
+            // Text Body
+            requestBody.put("content", List.of(Map.of(
+                "type", "text/plain",
+                "value", "Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you."
+            )));
+
+            // Process Attachments (Text File, Signature, and Zip Archive)
+            List<Map<String, String>> attachments = new ArrayList<>();
+            
+            // 1. Text Summary Attachment
+            String base64Summary = Base64.getEncoder().encodeToString(summaryText.getBytes());
+            attachments.add(Map.of("content", base64Summary, "filename", "service-form-summary.txt", "type", "text/plain"));
+
+            // 2. Signature Image Attachment
             if (signatureBase64 != null && signatureBase64.contains(",")) {
                 String cleanBase64 = signatureBase64.split(",")[1];
-                byte[] decodedSignature = Base64.getDecoder().decode(cleanBase64);
-                helper.addAttachment("customer-signature.png", new ByteArrayResource(decodedSignature));
+                attachments.add(Map.of("content", cleanBase64, "filename", "customer-signature.png", "type", "image/png"));
             }
 
+            // 3. Multi-file Zip Attachment
             if (files != null && files.length > 0 && !files[0].isEmpty()) {
                 byte[] zipBytes = createZipArchive(files);
-                helper.addAttachment("service-form-attachments.zip", new ByteArrayResource(zipBytes));
+                String base64Zip = Base64.getEncoder().encodeToString(zipBytes);
+                attachments.add(Map.of("content", base64Zip, "filename", "service-form-attachments.zip", "type", "application/zip"));
             }
 
-            mailSender.send(message);
-            response.put("success", true);
+            if (!attachments.isEmpty()) {
+                requestBody.put("attachments", attachments);
+            }
+
+            // Dispatched over Secure REST Traffic (Port 443)
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(sendGridApiKey);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> apiResponse = restTemplate.postForEntity("https://api.sendgrid.com/v3/mail/send", entity, String.class);
+
+            if (apiResponse.getStatusCode().is2xxSuccessful()) {
+                response.put("success", true);
+            } else {
+                response.put("success", false);
+                response.put("error", "SendGrid API Rejected Request: " + apiResponse.getBody());
+            }
             return response;
 
         } catch (Exception e) {
             response.put("success", false);
-            response.put("error", "SMTP Server Error: " + e.getMessage());
+            response.put("error", "Application Exception Error: " + e.getMessage());
             return response;
         }
     }
