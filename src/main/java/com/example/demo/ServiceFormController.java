@@ -1,41 +1,28 @@
 package com.example.demo;
 
-import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.mail.internet.MimeMessage;
+import java.io.ByteArrayOutputStream;
+import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @RestController
-@CrossOrigin(origins = "*") 
+@CrossOrigin(origins = "*")
 public class ServiceFormController {
 
     @Autowired
     private JavaMailSender mailSender;
 
-    @Value("${app.default-from}")
-    private String defaultFrom;
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     @Value("${app.finance-emails}")
     private String financeEmailsRaw;
@@ -46,7 +33,7 @@ public class ServiceFormController {
     @GetMapping("/config")
     public Map<String, Object> getConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put("defaultFrom", defaultFrom);
+        config.put("defaultFrom", fromEmail);
         config.put("financeEmails", parseRecipients(financeEmailsRaw));
         config.put("staffOptions", parseRecipients(staffEmailsRaw));
         return config;
@@ -71,69 +58,69 @@ public class ServiceFormController {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            List<String> customerRecipients = parseRecipients(clientEmails);
-            List<String> staffRecipients = parseRecipients(staffEmails);
-            
-            if (customerRecipients.isEmpty()) {
+            List<String> customerEmails = parseRecipients(clientEmails);
+            List<String> staffEmailsList = parseRecipients(staffEmails);
+
+            if (customerEmails.isEmpty()) {
                 response.put("success", false);
                 response.put("error", "At least one client recipient email is required.");
                 return response;
             }
 
-            Set<String> ccRecipients = new HashSet<>(staffRecipients);
-            if (invoiceable) {
-                ccRecipients.addAll(parseRecipients(financeEmailsRaw));
-            }
-
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            helper.setFrom(defaultFrom);
-            helper.setTo(customerRecipients.toArray(new String[0]));
-            if (!ccRecipients.isEmpty()) {
-                helper.setCc(ccRecipients.toArray(new String[0]));
+            helper.setFrom(fromEmail, "Nextan Service Team");
+            helper.setTo(customerEmails.toArray(new String[0]));
+
+            Set<String> ccEmails = new HashSet<>(staffEmailsList);
+            if (invoiceable) {
+                ccEmails.addAll(parseRecipients(financeEmailsRaw));
             }
-            
-            String subject = "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : "");
-            helper.setSubject(subject);
+            if (!ccEmails.isEmpty()) {
+                helper.setCc(ccEmails.toArray(new String[0]));
+            }
 
-            String formSummaryText = buildSummaryText(jobSite, location, serviceDate, serviceTime, 
-                    serviceRequest, serviceDetails, clientOrganisation, clientName, clientEmails, staffEmails, invoiceable);
+            helper.setSubject("Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : ""));
+            helper.setText("Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you.");
 
-            String emailBodyText = "Hello,\n\nPlease find the completed service form summary details documentation pack attached.\n\n"
-                    + "Client Profile: " + clientName + " (" + clientOrganisation + ")\n"
-                    + "Job Site Target: " + jobSite + "\n\n"
-                    + "If layout changes are required, please respond to this email.\n\nThank you.";
-            helper.setText(emailBodyText);
+            String summaryText = "==================================================\n" +
+               "               NEXTAN SERVICE FORM SUMMARY        \n" +
+               "==================================================\n" +
+               "Client Profile name    : " + clientName + "\n" +
+               "Client Organisation    : " + clientOrganisation + "\n" +
+               "Client Core Emails     : " + clientEmails + "\n" +
+               "--------------------------------------------------\n" +
+               "Job Site Location      : " + jobSite + " (" + location + ")\n" +
+               "Execution Timestamp    : " + serviceDate + " @ " + serviceTime + "\n" +
+               "--------------------------------------------------\n" +
+               "Service Request Line   : " + serviceRequest + "\n" +
+               "Detailed Service Logs  : \n" + serviceDetails + "\n" +
+               "--------------------------------------------------\n" +
+               "Attending Staff Email  : " + staffEmails + "\n" +
+               "Invoiceable Flagged    : " + (invoiceable ? "YES" : "NO") + "\n" +
+               "==================================================";
 
-            helper.addAttachment("service-form-summary.txt", new ByteArrayResource(formSummaryText.getBytes()));
+            helper.addAttachment("service-form-summary.txt", new ByteArrayResource(summaryText.getBytes()));
 
             if (signatureBase64 != null && signatureBase64.contains(",")) {
-                byte[] sigImageBytes = Base64.getDecoder().decode(signatureBase64.split(",")[1]);
-                helper.addAttachment("customer-signature.png", new ByteArrayResource(sigImageBytes));
+                String cleanBase64 = signatureBase64.split(",")[1];
+                byte[] decodedSignature = Base64.getDecoder().decode(cleanBase64);
+                helper.addAttachment("customer-signature.png", new ByteArrayResource(decodedSignature));
             }
 
             if (files != null && files.length > 0 && !files[0].isEmpty()) {
                 byte[] zipBytes = createZipArchive(files);
                 helper.addAttachment("service-form-attachments.zip", new ByteArrayResource(zipBytes));
-
-                for (MultipartFile file : files) {
-                    if (!file.isEmpty()) {
-                        helper.addAttachment(Objects.requireNonNull(file.getOriginalFilename()), file);
-                    }
-                }
             }
 
             mailSender.send(message);
-
             response.put("success", true);
-            response.put("sentTo", customerRecipients);
-            response.put("cc", ccRecipients);
             return response;
 
         } catch (Exception e) {
             response.put("success", false);
-            response.put("error", "Email pipeline error: " + e.getMessage());
+            response.put("error", "SMTP Server Error: " + e.getMessage());
             return response;
         }
     }
@@ -144,26 +131,6 @@ public class ServiceFormController {
                 .map(String::trim)
                 .filter(item -> !item.isEmpty())
                 .toList();
-    }
-
-    private String buildSummaryText(String jobSite, String location, String date, String time, String request, 
-                                    String details, String org, String name, String clientEmail, String staffEmail, boolean inv) {
-        return "==================================================\n" +
-               "               NEXTAN SERVICE FORM SUMMARY        \n" +
-               "==================================================\n" +
-               "Client Profile name    : " + name + "\n" +
-               "Client Organisation    : " + org + "\n" +
-               "Client Core Emails     : " + clientEmail + "\n" +
-               "--------------------------------------------------\n" +
-               "Job Site Location      : " + jobSite + " (" + location + ")\n" +
-               "Execution Timestamp    : " + date + " @ " + time + "\n" +
-               "--------------------------------------------------\n" +
-               "Service Request Line   : " + request + "\n" +
-               "Detailed Service Logs  : \n" + details + "\n" +
-               "--------------------------------------------------\n" +
-               "Attending Staff Email  : " + staffEmail + "\n" +
-               "Invoiceable Flagged    : " + (inv ? "YES" : "NO") + "\n" +
-               "==================================================";
     }
 
     private byte[] createZipArchive(MultipartFile[] files) throws Exception {
