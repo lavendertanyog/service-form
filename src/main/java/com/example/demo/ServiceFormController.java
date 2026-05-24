@@ -40,7 +40,6 @@ public class ServiceFormController {
 
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            // Enable multipart mode (true) for attaching files
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             // 1. Configure dynamic recipients
@@ -59,11 +58,9 @@ public class ServiceFormController {
             }
 
             helper.setTo(recipients.toArray(new String[0]));
-            
-            // 2. Set the custom subject line
             helper.setSubject("Nextan Service Form for " + clientName);
 
-            // 3. Set the clean, updated text email body
+            // 2. Set text email body
             String emailBody = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
@@ -78,7 +75,14 @@ public class ServiceFormController {
             );
             helper.setText(emailBody);
 
-            // 4. Generate beautiful PDF string template mapping the submitted details
+            // 3. Construct the clean HTML template for the PDF layout
+            // CRITICAL FIX: We strip out potential "data:image/png;base64," prefixes if sent by the client, 
+            // and use a clean inline style block to format it as a valid image context.
+            String cleanSignatureData = signatureBase64;
+            if (cleanSignatureData.contains(",")) {
+                cleanSignatureData = cleanSignatureData.split(",")[1];
+            }
+
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
                     ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
@@ -101,24 +105,27 @@ public class ServiceFormController {
                     "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\" style=\"white-space: pre-wrap;\">" + serviceDetails + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Assigned Engineers</div><div class=\"val\">" + (staffEmails != null ? staffEmails : "") + "</div></div>" +
                     "<div class=\"signature-box\"><div class=\"label\">Customer Signature</div>" +
-                    "<img src=\"" + signatureBase64 + "\" style=\"max-width:300px; height:auto;\" />" +
+                    "<img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:300px; height:120px;\" />" +
                     "</div>" +
                     "</body></html>";
 
-            // 5. Build and render the HTML layout cleanly directly to a PDF byte buffer
+            // 4. Build and render the PDF safely to a byte stream
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             PdfRendererBuilder builder = new PdfRendererBuilder();
+            
+            // This flag tells the builder to allow data: URI schemes (Base64 images) instead of crashing!
+            builder.useFastMode(); 
             builder.withHtmlContent(pdfHtmlTemplate, "/");
             builder.toStream(os);
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // 6. Attach the newly minted PDF layout form directly to the email
+            // 5. Attach PDF file copy to mail message
             String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
             ByteArrayDataSource pdfDataSource = new ByteArrayDataSource(pdfBytes, "application/pdf");
             helper.addAttachment(safeFileName, pdfDataSource);
 
-            // 7. Loop and append custom media uploads uploaded by the customer
+            // 6. Attach any supplementary media uploads
             if (attachments != null) {
                 for (MultipartFile file : attachments) {
                     if (!file.isEmpty()) {
@@ -127,7 +134,7 @@ public class ServiceFormController {
                 }
             }
 
-            // 8. Fire off the complete bundle email out!
+            // 7. Fire off the complete email package
             mailSender.send(message);
             return "{\"success\": true}";
 
