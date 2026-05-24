@@ -45,10 +45,7 @@
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
     }
     .field textarea { min-height: 130px; resize: vertical; }
-    
-    /* Muted grey color palette styling for datalist input hints */
     .field input::placeholder { color: #b9bdd1; font-weight: 400; }
-    
     .half { grid-column: span 6; }
     .full { grid-column: span 12; }
     
@@ -110,14 +107,15 @@
         <div class="field full"><label>Service Details<span class="required">*</span></label><textarea name="serviceDetails" placeholder="Describe service details" required></textarea></div>
         
         <div class="field half">
-          <label>Customer Name<span class="required">*</span></label>
-          <input type="text" name="clientName" id="clientName" placeholder="Type name (e.g. Eunice)" list="customerSuggestions" autocomplete="off" required />
-          <datalist id="customerSuggestions"></datalist>
+          <label>Company Name<span class="required">*</span></label>
+          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Type Company (e.g. Sheraton Towers)" list="companySuggestions" autocomplete="off" required />
+          <datalist id="companySuggestions"></datalist>
         </div>
 
         <div class="field half">
-          <label>Company Name<span class="required">*</span></label>
-          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Company name" required />
+          <label>Customer Name<span class="required">*</span></label>
+          <input type="text" name="clientName" id="clientName" placeholder="Type Name" list="customerSuggestions" autocomplete="off" required />
+          <datalist id="customerSuggestions"></datalist>
         </div>
         
         <div class="field half">
@@ -146,8 +144,8 @@
   <script>
     const BASE_URL = "https://service-form-production.up.railway.app";
 
-    // Global memory container to evaluate incoming suggestions matching entries
-    let dynamicCustomerMap = [];
+    // Master relational database container stored in browser memory
+    let relationalCompaniesDatabase = [];
 
     const form = document.getElementById('serviceForm');
     const submitBtn = document.getElementById('submitBtn');
@@ -190,13 +188,40 @@
       else selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
     }
 
-    // Auto fill handler when matching customer suggestion matches input text exactly
+    // LISTENER 1: When company name changes, filter and reload customer options
+    document.getElementById('clientOrganisation').addEventListener('input', (e) => {
+      const selectedCompany = e.target.value.trim();
+      const customerDatalist = document.getElementById('customerSuggestions');
+      customerDatalist.innerHTML = ''; // Wipe past dynamic employee sets
+      
+      // Clear values if company is wiped
+      if(!selectedCompany) {
+        document.getElementById('clientName').value = '';
+        document.getElementById('clientEmails').value = '';
+        return;
+      }
+
+      const match = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === selectedCompany.toLowerCase());
+      if (match && match.customers) {
+        match.customers.forEach(cust => {
+          const opt = document.createElement('option');
+          opt.value = cust.name;
+          customerDatalist.appendChild(opt);
+        });
+      }
+    });
+
+    // LISTENER 2: When customer name is typed/selected, look up and auto-fill email
     document.getElementById('clientName').addEventListener('input', (e) => {
-      const enteredValue = e.target.value.trim();
-      const match = dynamicCustomerMap.find(c => c.clientName.toLowerCase() == enteredValue.toLowerCase());
-      if (match) {
-        document.getElementById('clientOrganisation').value = match.clientOrganisation;
-        document.getElementById('clientEmails').value = match.clientEmails;
+      const targetCompany = document.getElementById('clientOrganisation').value.trim();
+      const targetCustomer = e.target.value.trim();
+
+      const companyMatch = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === targetCompany.toLowerCase());
+      if (companyMatch && companyMatch.customers) {
+        const customerMatch = companyMatch.customers.find(cust => cust.name.toLowerCase() === targetCustomer.toLowerCase());
+        if (customerMatch) {
+          document.getElementById('clientEmails').value = customerMatch.email;
+        }
       }
     });
 
@@ -211,11 +236,10 @@
       const minutes = String(now.getMinutes()).padStart(2, '0');
       document.getElementById('serviceTime').value = `${hours}:${minutes}`;
 
-      // Pull dynamic setup and parameters from Railway configurations 
+      // Fetch fresh structural lists from server
       fetch(`${BASE_URL}/config`)
       .then(res => res.json())
       .then(config => {
-        // Load Tech Dropdown options
         if (config.staffOptions && optionsContainer) {
           optionsContainer.innerHTML = '';
           config.staffOptions.forEach(email => {
@@ -227,19 +251,20 @@
           });
         }
 
-        // Load Persistent Memory Customer Autocomplete Datalist Matrix
-        if (config.savedCustomers) {
-          dynamicCustomerMap = config.savedCustomers;
-          const datalist = document.getElementById('customerSuggestions');
-          datalist.innerHTML = ''; // Clear out past items
-          config.savedCustomers.forEach(customer => {
-             const opt = document.createElement('option');
-             opt.value = customer.clientName;
-             datalist.appendChild(opt);
+        // Map Relational Data Lists to the Company Datalist suggestions box
+        if (config.companiesDatabase) {
+          relationalCompaniesDatabase = config.companiesDatabase;
+          const companyDatalist = document.getElementById('companySuggestions');
+          companyDatalist.innerHTML = '';
+          
+          config.companiesDatabase.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.companyName;
+            companyDatalist.appendChild(opt);
           });
         }
       })
-      .catch(err => console.error("Config fetch error: ", err));
+      .catch(err => console.error("Config tracking error: ", err));
     });
 
     form.addEventListener('submit', (event) => {
@@ -266,7 +291,7 @@
            form.reset();
            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
            selectBoxValue.textContent = "Please select";
-           document.dispatchEvent(new Event('DOMContentLoaded')); // Refresh dynamic memory matrices
+           document.dispatchEvent(new Event('DOMContentLoaded')); // Dynamic refresh
         } else {
            alert("Submission Error: " + data.error);
         }
