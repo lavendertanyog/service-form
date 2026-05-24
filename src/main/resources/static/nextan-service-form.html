@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Nextan Service Form</title>
   <style>
     :root {
@@ -20,32 +20,34 @@
     body {
       margin: 0; min-height: 100vh;
       background: linear-gradient(180deg, #f6f8fc 0%, #eef2f8 100%);
-      color: var(--text); padding: 24px;
+      color: var(--text); padding: 16px; /* Optimized padding for small screens */
     }
     .container {
-      max-width: 1000px; margin: 0 auto; background: var(--panel);
+      width: 100%; max-width: 1000px; margin: 0 auto; background: var(--panel);
       border-radius: calc(var(--radius) + 4px);
       box-shadow: 0 24px 58px rgba(15, 23, 42, 0.12);
       overflow: hidden; border: 1px solid rgba(16, 24, 40, 0.08);
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 24px 30px; background: #fff; border-bottom: 1px solid rgba(16, 24, 40, 0.08);
+      padding: 20px 24px; background: #fff; border-bottom: 1px solid rgba(16, 24, 40, 0.08);
     }
     .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.02em; }
     .logo span { color: #0f172a; }
     .logo .brand { color: #1f7efd; font-size: 1.4rem; }
-    .form-panel { padding: 28px 32px 32px; }
-    .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
-    .field { display: grid; gap: 8px; position: relative; }
+    .form-panel { padding: 24px 20px; }
+    .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); width: 100%; }
+    .field { display: grid; gap: 8px; position: relative; width: 100%; }
     .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
     .field label .required { color: var(--danger); margin-left: 3px; }
     
-    /* UNIFORM BOX FIX: explicitly set line-height and height behaviors for date/time boxes */
+    /* UNIFORM & MOBILE OVERFLOW FIXES */
     .field input, .field textarea, .field select {
-      width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 12px;
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
       height: 48px; line-height: 1.2;
+      -webkit-appearance: none; /* Strips unique iOS element bugs */
+      appearance: none;
     }
     .field textarea { min-height: 130px; height: auto; resize: vertical; }
     .field input::placeholder { color: #b9bdd1; font-weight: 400; }
@@ -75,10 +77,10 @@
       grid-column: span 12; border: 1px dashed var(--border); border-radius: 16px;
       min-height: 136px; display: flex; align-items: center; justify-content: center;
       text-align: center; padding: 22px; background: #fafbff; color: var(--muted); font-size: 0.95rem;
+      width: 100%;
     }
     .upload-card input[type=file] { margin-top: 10px; color: var(--text); height: auto; }
     
-    /* RADIO BUTTON FIX: Adjusted containers and aligned option text right next to dots */
     .radio-group { display: flex; gap: 24px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: #fff; height: 48px; align-items: center; }
     .radio-item { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: background 0.2s ease; }
     .radio-item input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; cursor: pointer; }
@@ -86,16 +88,21 @@
     .radio-item:hover { background: #f6f8ff; }
     .radio-item input:checked + span { color: var(--accent); font-weight: 700; }
     
-    .signature-panel { grid-column: span 12; display: grid; gap: 14px; }
-    .signature-box { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #fff; min-height: 210px; }
+    .signature-panel { grid-column: span 12; display: grid; gap: 14px; width: 100%; }
+    .signature-box { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #fff; min-height: 210px; width: 100%; }
     #signatureCanvas { width: 100%; height: 210px; display: block; cursor: crosshair; }
     .signature-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
     .signature-actions button, .submit-button { cursor: pointer; border: none; border-radius: 999px; padding: 12px 22px; font-weight: 700; font-size: 0.95rem; }
     .signature-actions button { background: #eef2ff; color: var(--text); }
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
-    @media (max-width: 920px) { .half { grid-column: span 12; } .form-panel { padding: 22px 20px 28px; } }
-    @media (max-width: 640px) { body { padding: 16px; } }
+
+    /* MOBILE SCALE-DOWN RULE: Safely targets everything inside layout grid */
+    @media (max-width: 768px) { 
+      .half { grid-column: span 12; } 
+      .form-panel { padding: 16px 12px; }
+      body { padding: 12px 8px; }
+    }
   </style>
 </head>
 <body>
@@ -183,6 +190,8 @@
       const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); ctx.lineCap = 'round'; ctx.strokeStyle = '#111827'; ctx.lineWidth = 3;
     };
     resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
     let drawing = false; let lastX = 0; let lastY = 0;
     const getPointer = (event) => {
       const rect = canvas.getBoundingClientRect(); const x = (event.clientX || event.touches[0].clientX) - rect.left; const y = (event.clientY || event.touches[0].clientY) - rect.top; return { x, y };
