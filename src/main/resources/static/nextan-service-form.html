@@ -45,6 +45,9 @@
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
     }
     .field textarea { min-height: 130px; resize: vertical; }
+    /* Stylized hint colors for native suggestion tracking */
+    .field input::placeholder { color: #b9bdd1; font-weight: 400; }
+    .field select[multiple] { min-height: 95px; padding: 8px; }
     .half { grid-column: span 6; }
     .full { grid-column: span 12; }
     .upload-card {
@@ -79,14 +82,54 @@
       <div class="form-grid">
         <div class="field half"><label>Job site<span class="required">*</span></label><input type="text" name="jobSite" placeholder="Job site" required /></div>
         <div class="field half"><label>Location<span class="required">*</span></label><input type="text" name="location" placeholder="Location" required /></div>
-        <div class="field half"><label>Date of Service<span class="required">*</span></label><input type="date" name="serviceDate" required /></div>
-        <div class="field half"><label>Time of Service<span class="required">*</span></label><input type="time" name="serviceTime" required /></div>
+        
+        <div class="field half"><label>Date of Service<span class="required">*</span></label><input type="date" name="serviceDate" id="serviceDate" required /></div>
+        <div class="field half"><label>Time of Service<span class="required">*</span></label><input type="time" name="serviceTime" id="serviceTime" required /></div>
+        
         <div class="field full"><label>Service Request<span class="required">*</span></label><input type="text" name="serviceRequest" placeholder="Service request" required /></div>
         <div class="field full"><label>Service Details<span class="required">*</span></label><textarea name="serviceDetails" placeholder="Describe service details" required></textarea></div>
-        <div class="field half"><label>Company Name<span class="required">*</span></label><input type="text" name="clientOrganisation" placeholder="Company name" required /></div>
-        <div class="field half"><label>Customer Name<span class="required">*</span></label><input type="text" name="clientName" placeholder="Customer name" required /></div>
-        <div class="field half"><label>Customer Email address<span class="required">*</span></label><input type="email" name="clientEmails" placeholder="customer@example.com" required /><div class="helper">This is where the service form will be sent.</div></div>
-        <div class="field half"><label>Technician/Engineer Email Address<span class="required">*</span></label><select name="staffEmails" id="staffEmailsDropdown" required><option value="">Please select</option></select><div class="helper">This is where the service form will be sent.</div></div>
+        
+        <div class="field half">
+          <label>Company Name<span class="required">*</span></label>
+          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Company name" list="companySuggestions" required />
+          <datalist id="companySuggestions">
+            <option value="Nextan Pte Ltd">
+            <option value="Eunice Tech Solutions">
+            <option value="Unicorn Finance Corp">
+            <option value="Global Logistics Asia">
+          </datalist>
+        </div>
+        <div class="field half">
+          <label>Customer Name<span class="required">*</span></label>
+          <input type="text" name="clientName" id="clientName" placeholder="Type name (e.g. Eunice)" list="customerSuggestions" required />
+          <datalist id="customerSuggestions">
+            <option value="Eunice Tan">
+            <option value="Ethan Lim">
+            <option value="Evan Wong">
+            <option value="Janice Lav">
+            <option value="Rebecca Goh">
+          </datalist>
+        </div>
+        
+        <div class="field half">
+          <label>Customer Email address<span class="required">*</span></label>
+          <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" list="emailSuggestions" required />
+          <datalist id="emailSuggestions">
+            <option value="eunicetanyongnie@gmail.com">
+            <option value="unicorntanyongnie@gmail.com">
+            <option value="janicelav9@gmail.com">
+            <option value="rebecca.goh@nextan.com">
+          </datalist>
+          <div class="helper">This is where the service form will be sent.</div>
+        </div>
+        
+        <div class="field half">
+          <label>Technician/Engineer Email Address<span class="required">*</span></label>
+          <select name="staffEmails" id="staffEmailsDropdown" multiple required>
+            </select>
+          <div class="helper text-accent">💡 Hold Ctrl (Windows) or Cmd (Mac) to select more than 1 engineer.</div>
+        </div>
+        
         <div class="field full upload-card"><div><div><strong>File / Image upload</strong></div><div>Choose files or drag here</div><input type="file" name="attachments" multiple /></div></div>
         <div class="field half"><label>Invoiceable Service<span class="required">*</span></label><div class="radio-group"><label class="radio-item"><input type="radio" name="invoiceable" value="true" required /><span>Yes</span></label><label class="radio-item"><input type="radio" name="invoiceable" value="false" checked /><span>No</span></label></div></div>
         <div class="field full signature-panel"><label>Customer Signature<span class="required">*</span></label><div class="signature-box"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button type="button" id="clearSignature">Clear</button><span class="helper">Sign inside the box. This signature will be submitted with the form.</span></div></div>
@@ -96,7 +139,6 @@
     </form>
   </div>
   <script>
-    
     const BASE_URL = "https://service-form-production.up.railway.app";
 
     const form = document.getElementById('serviceForm');
@@ -125,19 +167,50 @@
     canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseleave', stopDrawing); canvas.addEventListener('touchend', stopDrawing);
     clearSignature.addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); signatureValue.value = ''; });
 
-    // Asynchronous Fetch Submission Framework
+    // Feedback 2 & 3: Auto-calculate and bind current Date/Time defaults on load
+    document.addEventListener("DOMContentLoaded", () => {
+      const now = new Date();
+      
+      // Format date to YYYY-MM-DD
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      document.getElementById('serviceDate').value = `${year}-${month}-${day}`;
+      
+      // Format time to HH:MM
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('serviceTime').value = `${hours}:${minutes}`;
+
+      // Load technician config arrays
+      fetch(`${BASE_URL}/config`)
+      .then(res => res.json())
+      .then(config => {
+        const dropdown = document.getElementById('staffEmailsDropdown');
+        if (config.staffOptions && dropdown) {
+          dropdown.innerHTML = ''; // Clear default placeholder row
+          config.staffOptions.forEach(email => {
+            const opt = document.createElement('option'); opt.value = email; opt.textContent = email; dropdown.appendChild(opt);
+          });
+        }
+      })
+      .catch(err => console.error("Config load error: ", err));
+    });
+
+    // Form Submission Processing Flow
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       
-      // Lock submit button status animation
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending Document Pack...";
-
-      // Convert Canvas signature lines to compressed image values
       signatureValue.value = canvas.toDataURL('image/png');
 
-      // Create internal virtual form object multi-part streaming payload
       const formData = new FormData(form);
+
+      // Feedback 4: Intercept multi-select values so all highlighted choices stream forward
+      const dropdown = document.getElementById('staffEmailsDropdown');
+      const selectedStaff = Array.from(dropdown.selectedOptions).map(option => option.value);
+      formData.set('staffEmails', selectedStaff.join(',')); // Convert to comma separated list string
 
       fetch(`${BASE_URL}/submit`, {
         method: 'POST',
@@ -149,33 +222,20 @@
            alert("Success! The service form has been securely dispatched.");
            form.reset();
            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+           // Trigger defaults again on successful cleanup
+           document.dispatchEvent(new Event('DOMContentLoaded'));
         } else {
            alert("Submission Error: " + data.error);
         }
       })
       .catch(err => {
          console.error("Network Exception Tracker: ", err);
-         alert("Could not reach the server engine. Please check if your Railway app is active.");
+         alert("Could not reach the server engine. Please check your network context.");
       })
       .finally(() => {
          submitBtn.disabled = false;
          submitBtn.textContent = "Submit the Support Form";
       });
-    });
-
-    document.addEventListener("DOMContentLoaded", () => {
-      fetch(`${BASE_URL}/config`)
-      .then(res => res.json())
-      .then(config => {
-        const dropdown = document.getElementById('staffEmailsDropdown');
-        if (config.staffOptions && dropdown) {
-          dropdown.innerHTML = '<option value="">Please select</option>'; // Clear default
-          config.staffOptions.forEach(email => {
-            const opt = document.createElement('option'); opt.value = email; opt.textContent = email; dropdown.appendChild(opt);
-          });
-        }
-      })
-      .catch(err => console.error("Config load error: ", err));
     });
   </script>
 </body>
