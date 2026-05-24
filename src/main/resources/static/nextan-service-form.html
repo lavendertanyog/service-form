@@ -45,75 +45,30 @@
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
     }
     .field textarea { min-height: 130px; resize: vertical; }
+    
+    /* Muted grey color palette styling for datalist input hints */
     .field input::placeholder { color: #b9bdd1; font-weight: 400; }
+    
     .half { grid-column: span 6; }
     .full { grid-column: span 12; }
     
-    /* Modern Multi-Select Dropdown Styling */
-    .multiselect-container {
-      position: relative;
-      width: 100%;
-    }
+    .multiselect-container { position: relative; width: 100%; }
     .select-box {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px 16px;
-      font-size: 0.95rem;
-      color: var(--text);
-      background: #fff;
-      cursor: pointer;
-      user-select: none;
+      display: flex; justify-content: space-between; align-items: center; width: 100%;
+      border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+      font-size: 0.95rem; color: var(--text); background: #fff; cursor: pointer; user-select: none;
     }
-    .select-box::after {
-      content: '▼';
-      font-size: 0.75rem;
-      color: var(--muted);
-      transition: transform 0.2s ease;
-    }
-    .multiselect-container.open .select-box::after {
-      transform: rotate(180deg);
-    }
+    .select-box::after { content: '▼'; font-size: 0.75rem; color: var(--muted); transition: transform 0.2s ease; }
+    .multiselect-container.open .select-box::after { transform: rotate(180deg); }
     .dropdown-options {
-      display: none;
-      position: absolute;
-      top: 105%;
-      left: 0;
-      width: 100%;
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-      z-index: 10;
-      max-height: 200px;
-      overflow-y: auto;
-      padding: 6px;
+      display: none; position: absolute; top: 105%; left: 0; width: 100%; background: #fff;
+      border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      z-index: 10; max-height: 200px; overflow-y: auto; padding: 6px;
     }
-    .multiselect-container.open .dropdown-options {
-      display: block;
-    }
-    .option-checkbox {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 0.95rem;
-      transition: background 0.15s ease;
-    }
-    .option-checkbox:hover {
-      background: #f4f7ff;
-    }
-    .option-checkbox input {
-      width: 18px;
-      height: 18px;
-      accent-color: var(--accent);
-      cursor: pointer;
-    }
+    .multiselect-container.open .dropdown-options { display: block; }
+    .option-checkbox { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: background 0.15s ease; }
+    .option-checkbox:hover { background: #f4f7ff; }
+    .option-checkbox input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 
     .upload-card {
       grid-column: span 12; border: 1px dashed var(--border); border-radius: 16px;
@@ -155,36 +110,19 @@
         <div class="field full"><label>Service Details<span class="required">*</span></label><textarea name="serviceDetails" placeholder="Describe service details" required></textarea></div>
         
         <div class="field half">
-          <label>Company Name<span class="required">*</span></label>
-          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Company name" list="companySuggestions" required />
-          <datalist id="companySuggestions">
-            <option value="Nextan Pte Ltd">
-            <option value="Eunice Tech Solutions">
-            <option value="Unicorn Finance Corp">
-            <option value="Global Logistics Asia">
-          </datalist>
-        </div>
-        <div class="field half">
           <label>Customer Name<span class="required">*</span></label>
-          <input type="text" name="clientName" id="clientName" placeholder="Type name (e.g. Eunice)" list="customerSuggestions" required />
-          <datalist id="customerSuggestions">
-            <option value="Eunice Tan">
-            <option value="Ethan Lim">
-            <option value="Evan Wong">
-            <option value="Janice Lav">
-            <option value="Rebecca Goh">
-          </datalist>
+          <input type="text" name="clientName" id="clientName" placeholder="Type name (e.g. Eunice)" list="customerSuggestions" autocomplete="off" required />
+          <datalist id="customerSuggestions"></datalist>
+        </div>
+
+        <div class="field half">
+          <label>Company Name<span class="required">*</span></label>
+          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Company name" required />
         </div>
         
         <div class="field half">
           <label>Customer Email address<span class="required">*</span></label>
-          <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" list="emailSuggestions" required />
-          <datalist id="emailSuggestions">
-            <option value="eunicetanyongnie@gmail.com">
-            <option value="unicorntanyongnie@gmail.com">
-            <option value="janicelav9@gmail.com">
-            <option value="rebecca.goh@nextan.com">
-          </datalist>
+          <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" required />
           <div class="helper">This is where the service form will be sent.</div>
         </div>
         
@@ -192,8 +130,7 @@
           <label>Technician/Engineer Email Address<span class="required">*</span></label>
           <div class="multiselect-container" id="staffMultiselect">
             <div class="select-box" id="selectBoxValue">Please select</div>
-            <div class="dropdown-options" id="staffOptionsContainer">
-              </div>
+            <div class="dropdown-options" id="staffOptionsContainer"></div>
           </div>
           <div class="helper">This is where the service form will be sent. You can select multiple.</div>
         </div>
@@ -208,6 +145,9 @@
   </div>
   <script>
     const BASE_URL = "https://service-form-production.up.railway.app";
+
+    // Global memory container to evaluate incoming suggestions matching entries
+    let dynamicCustomerMap = [];
 
     const form = document.getElementById('serviceForm');
     const submitBtn = document.getElementById('submitBtn');
@@ -239,31 +179,27 @@
     canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseleave', stopDrawing); canvas.addEventListener('touchend', stopDrawing);
     clearSignature.addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); signatureValue.value = ''; });
 
-    // Toggle Dropdown Display UI
-    selectBoxValue.addEventListener('click', (e) => {
-      e.stopPropagation();
-      multiselect.classList.toggle('open');
-    });
-
-    // Close Dropdown if user clicks anywhere else on screen
-    document.addEventListener('click', () => {
-      multiselect.classList.remove('open');
-    });
+    selectBoxValue.addEventListener('click', (e) => { e.stopPropagation(); multiselect.classList.toggle('open'); });
+    document.addEventListener('click', () => { multiselect.classList.remove('open'); });
     optionsContainer.addEventListener('click', (e) => e.stopPropagation());
 
-    // Update Label UI based on choices
     function updateSelectedDisplay() {
       const checkedBoxes = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
-      if (checkedBoxes.length === 0) {
-        selectBoxValue.textContent = "Please select";
-      } else if (checkedBoxes.length === 1) {
-        selectBoxValue.textContent = checkedBoxes[0].value;
-      } else {
-        selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
-      }
+      if (checkedBoxes.length === 0) selectBoxValue.textContent = "Please select";
+      else if (checkedBoxes.length === 1) selectBoxValue.textContent = checkedBoxes[0].value;
+      else selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
     }
 
-    // Initialize defaults on load
+    // Auto fill handler when matching customer suggestion matches input text exactly
+    document.getElementById('clientName').addEventListener('input', (e) => {
+      const enteredValue = e.target.value.trim();
+      const match = dynamicCustomerMap.find(c => c.clientName.toLowerCase() == enteredValue.toLowerCase());
+      if (match) {
+        document.getElementById('clientOrganisation').value = match.clientOrganisation;
+        document.getElementById('clientEmails').value = match.clientEmails;
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
@@ -275,50 +211,47 @@
       const minutes = String(now.getMinutes()).padStart(2, '0');
       document.getElementById('serviceTime').value = `${hours}:${minutes}`;
 
-      // Fetch operational engineer data mapping arrays
+      // Pull dynamic setup and parameters from Railway configurations 
       fetch(`${BASE_URL}/config`)
       .then(res => res.json())
       .then(config => {
+        // Load Tech Dropdown options
         if (config.staffOptions && optionsContainer) {
-          optionsContainer.innerHTML = ''; // Wipe templates
+          optionsContainer.innerHTML = '';
           config.staffOptions.forEach(email => {
-            const label = document.createElement('label');
-            label.className = 'option-checkbox';
-            
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = email;
-            checkbox.name = 'staffEmailsList'; // Handled safely inside submission map below
-            
+            const label = document.createElement('label'); label.className = 'option-checkbox';
+            const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = email;
             checkbox.addEventListener('change', updateSelectedDisplay);
-            
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(email));
+            label.appendChild(checkbox); label.appendChild(document.createTextNode(email));
             optionsContainer.appendChild(label);
           });
         }
+
+        // Load Persistent Memory Customer Autocomplete Datalist Matrix
+        if (config.savedCustomers) {
+          dynamicCustomerMap = config.savedCustomers;
+          const datalist = document.getElementById('customerSuggestions');
+          datalist.innerHTML = ''; // Clear out past items
+          config.savedCustomers.forEach(customer => {
+             const opt = document.createElement('option');
+             opt.value = customer.clientName;
+             datalist.appendChild(opt);
+          });
+        }
       })
-      .catch(err => console.error("Config load error: ", err));
+      .catch(err => console.error("Config fetch error: ", err));
     });
 
-    // Handle Form Delivery Interceptions
     form.addEventListener('submit', (event) => {
       event.preventDefault();
-      
-      // Validation check to ensure at least one checkbox is chosen
       const selectedBoxes = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
-      if (selectedBoxes.length === 0) {
-        alert("Please select at least one Technician/Engineer Email Address.");
-        return;
-      }
+      if (selectedBoxes.length === 0) { alert("Please select at least one Engineer Email Address."); return; }
 
       submitBtn.disabled = true;
       submitBtn.textContent = "Sending Document Pack...";
       signatureValue.value = canvas.toDataURL('image/png');
 
       const formData = new FormData(form);
-
-      // Collect checkbox values into a single comma-separated string parameter for your Java Spring Backend variable
       const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
       formData.append('staffEmails', staffEmailsArray.join(','));
 
@@ -333,15 +266,12 @@
            form.reset();
            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
            selectBoxValue.textContent = "Please select";
-           document.dispatchEvent(new Event('DOMContentLoaded')); // Reset time blocks
+           document.dispatchEvent(new Event('DOMContentLoaded')); // Refresh dynamic memory matrices
         } else {
            alert("Submission Error: " + data.error);
         }
       })
-      .catch(err => {
-         console.error("Network Error Log: ", err);
-         alert("Could not reach the server engine.");
-      })
+      .catch(err => { alert("Could not reach the server engine."); })
       .finally(() => {
          submitBtn.disabled = false;
          submitBtn.textContent = "Submit the Support Form";
