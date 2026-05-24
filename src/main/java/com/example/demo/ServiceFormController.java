@@ -1,5 +1,7 @@
 package com.example.demo;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +17,9 @@ import java.util.zip.ZipOutputStream;
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
 
+    @Autowired
+    private CustomerRepository customerRepository;
+
     @Value("${SENDGRID_API_KEY:}")
     private String sendGridApiKey;
 
@@ -29,12 +34,27 @@ public class ServiceFormController {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    // 1. Initial Setup: Populate example profiles if database is empty
+    @PostConstruct
+    public void initDefaultCustomers() {
+        if (customerRepository.count() == 0) {
+            customerRepository.save(new Customer("Eunice Tan", "Nextan Pte Ltd", "eunicetanyongnie@gmail.com"));
+            customerRepository.save(new Customer("Ethan Lim", "Eunice Tech Solutions", "unicorntanyongnie@gmail.com"));
+            customerRepository.save(new Customer("Janice Lav", "Global Logistics Asia", "janicelav9@gmail.com"));
+            customerRepository.save(new Customer("Rebecca Goh", "Unicorn Finance Corp", "rebecca.goh@nextan.com"));
+        }
+    }
+
+    // Feed dynamic customer profiles directly to frontend datalists
     @GetMapping("/config")
     public Map<String, Object> getConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put("defaultFrom", defaultFromEmail);
         config.put("financeEmails", parseRecipients(financeEmailsRaw));
         config.put("staffOptions", parseRecipients(staffEmailsRaw));
+        
+        // Pass all captured customers out to the webpage dropdown elements
+        config.put("savedCustomers", customerRepository.findAll());
         return config;
     }
 
@@ -58,7 +78,7 @@ public class ServiceFormController {
 
         if (sendGridApiKey == null || sendGridApiKey.trim().isEmpty()) {
             response.put("success", false);
-            response.put("error", "Backend Configuration Error: SendGrid API Key is missing on the hosting platform.");
+            response.put("error", "Backend Configuration Error: SendGrid API Key missing.");
             return response;
         }
 
@@ -72,7 +92,14 @@ public class ServiceFormController {
                 return response;
             }
 
-            // Assemble Text Content Pack
+            // 2. Capture and Save: If this client name isn't in database, save it for future autocomplete!
+            String cleanName = clientName.trim();
+            Optional<Customer> existingCustomer = customerRepository.findByClientNameIgnoreCase(cleanName);
+            if (existingCustomer.isEmpty()) {
+                customerRepository.save(new Customer(cleanName, clientOrganisation.trim(), clientEmails.trim()));
+            }
+
+            // Build out email documentation block
             String summaryText = "==================================================\n" +
                "               NEXTAN SERVICE FORM SUMMARY        \n" +
                "==================================================\n" +
@@ -90,10 +117,7 @@ public class ServiceFormController {
                "Invoiceable Flagged    : " + (invoiceable ? "YES" : "NO") + "\n" +
                "==================================================\n";
 
-            // Prepare SendGrid Request Body
             Map<String, Object> requestBody = new HashMap<>();
-            
-            // Personalizations (To, CC)
             List<Map<String, Object>> personalizations = new ArrayList<>();
             Map<String, Object> personalization = new HashMap<>();
             
@@ -118,33 +142,23 @@ public class ServiceFormController {
             personalizations.add(personalization);
             requestBody.put("personalizations", personalizations);
 
-            // Metadata Subject Line
             String subject = "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : "");
             requestBody.put("subject", subject);
-
-            // Verified From Sender Identity
             requestBody.put("from", Map.of("email", defaultFromEmail, "name", "Nextan Service Team"));
-
-            // Text Body
             requestBody.put("content", List.of(Map.of(
                 "type", "text/plain",
                 "value", "Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you."
             )));
 
-            // Process Attachments (Text File, Signature, and Zip Archive)
             List<Map<String, String>> attachments = new ArrayList<>();
-            
-            // 1. Text Summary Attachment
             String base64Summary = Base64.getEncoder().encodeToString(summaryText.getBytes());
             attachments.add(Map.of("content", base64Summary, "filename", "service-form-summary.txt", "type", "text/plain"));
 
-            // 2. Signature Image Attachment
             if (signatureBase64 != null && signatureBase64.contains(",")) {
                 String cleanBase64 = signatureBase64.split(",")[1];
                 attachments.add(Map.of("content", cleanBase64, "filename", "customer-signature.png", "type", "image/png"));
             }
 
-            // 3. Multi-file Zip Attachment
             if (files != null && files.length > 0 && !files[0].isEmpty()) {
                 byte[] zipBytes = createZipArchive(files);
                 String base64Zip = Base64.getEncoder().encodeToString(zipBytes);
@@ -155,7 +169,6 @@ public class ServiceFormController {
                 requestBody.put("attachments", attachments);
             }
 
-            // Dispatched over Secure REST Traffic (Port 443)
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             headers.setBearerAuth(sendGridApiKey);
@@ -167,13 +180,13 @@ public class ServiceFormController {
                 response.put("success", true);
             } else {
                 response.put("success", false);
-                response.put("error", "SendGrid API Rejected Request: " + apiResponse.getBody());
+                response.put("error", "SendGrid API Error: " + apiResponse.getBody());
             }
             return response;
 
         } catch (Exception e) {
             response.put("success", false);
-            response.put("error", "Application Exception Error: " + e.getMessage());
+            response.put("error", "Application Exception: " + e.getMessage());
             return response;
         }
     }
