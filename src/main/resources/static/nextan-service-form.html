@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Nextan Service Form</title>
   <style>
     :root {
@@ -16,58 +16,112 @@
       --radius: 16px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
+    
     * { box-sizing: border-box; }
+    
     body {
       margin: 0; min-height: 100vh;
       background: linear-gradient(180deg, #f6f8fc 0%, #eef2f8 100%);
-      color: var(--text); padding: 24px;
+      color: var(--text); padding: 16px;
     }
     .container {
-      max-width: 1000px; margin: 0 auto; background: var(--panel);
+      width: 100%; max-width: 1000px; margin: 0 auto; background: var(--panel);
       border-radius: calc(var(--radius) + 4px);
       box-shadow: 0 24px 58px rgba(15, 23, 42, 0.12);
       overflow: hidden; border: 1px solid rgba(16, 24, 40, 0.08);
     }
     .header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 24px 30px; background: #fff; border-bottom: 1px solid rgba(16, 24, 40, 0.08);
+      padding: 20px 24px; background: #fff; border-bottom: 1px solid rgba(16, 24, 40, 0.08);
     }
     .logo { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.1rem; letter-spacing: 0.02em; }
     .logo span { color: #0f172a; }
     .logo .brand { color: #1f7efd; font-size: 1.4rem; }
-    .form-panel { padding: 28px 32px 32px; }
-    .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
-    .field { display: grid; gap: 8px; }
+    .form-panel { padding: 24px 20px; }
+    .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); width: 100%; }
+    .field { display: grid; gap: 8px; position: relative; width: 100%; }
     .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
     .field label .required { color: var(--danger); margin-left: 3px; }
+    
     .field input, .field textarea, .field select {
-      width: 100%; border: 1px solid var(--border); border-radius: 12px;
+      width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 12px;
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
+      height: 48px; line-height: 1.2;
+      -webkit-appearance: none;
+      appearance: none;
     }
-    .field textarea { min-height: 130px; resize: vertical; }
+    .field textarea { min-height: 130px; height: auto; resize: vertical; }
+    .field input::placeholder { color: #b9bdd1; font-weight: 400; }
     .half { grid-column: span 6; }
     .full { grid-column: span 12; }
+    
+    .multiselect-container { position: relative; width: 100%; }
+    .select-box {
+      display: flex; justify-content: space-between; align-items: center; width: 100%;
+      border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px;
+      font-size: 0.95rem; color: var(--text); background: #fff; cursor: pointer; user-select: none;
+      height: 48px;
+    }
+    .select-box::after { content: '▼'; font-size: 0.75rem; color: var(--muted); transition: transform 0.2s ease; }
+    .multiselect-container.open .select-box::after { transform: rotate(180deg); }
+    .dropdown-options {
+      display: none; position: absolute; top: 105%; left: 0; width: 100%; background: #fff;
+      border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+      z-index: 10; max-height: 200px; overflow-y: auto; padding: 6px;
+    }
+    .multiselect-container.open .dropdown-options { display: block; }
+    .option-checkbox { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; font-size: 0.95rem; transition: background 0.15s ease; }
+    .option-checkbox:hover { background: #f4f7ff; }
+    .option-checkbox input { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+    /* CUSTOM CENTERED FILE UPLOAD STYLING */
     .upload-card {
       grid-column: span 12; border: 1px dashed var(--border); border-radius: 16px;
-      min-height: 136px; display: flex; align-items: center; justify-content: center;
-      text-align: center; padding: 22px; background: #fafbff; color: var(--muted); font-size: 0.95rem;
+      min-height: 160px; display: flex; flex-direction: column; align-items: center; 
+      justify-content: center; text-align: center; padding: 24px; background: #fafbff; 
+      color: var(--muted); font-size: 0.95rem; width: 100%; position: relative;
     }
-    .upload-card input[type=file] { margin-top: 10px; color: var(--text); }
-    .radio-group { display: flex; gap: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
-    .radio-item { display: inline-flex; align-items: center; gap: 10px; cursor: pointer; padding: 10px 14px; border-radius: 12px; border: 1px solid transparent; transition: border-color 0.2s ease, background 0.2s ease; }
-    .radio-item input { accent-color: var(--accent); }
-    .radio-item:hover { border-color: rgba(31, 126, 253, 0.18); background: #f6f8ff; }
+    .upload-text-wrapper {
+      margin-bottom: 14px; line-height: 1.5;
+    }
+    /* Hide the ugly standard input completely */
+    .upload-card input[type=file] { 
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+      opacity: 0; cursor: pointer; z-index: 2;
+    }
+    /* Beautiful, centered fallback simulated button box */
+    .custom-upload-btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: #ffffff; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px 18px; font-size: 0.9rem; color: var(--text); font-weight: 600;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04); pointer-events: none; max-width: 90%;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background 0.2s;
+    }
+    .upload-card:hover .custom-upload-btn {
+      background: #f4f7ff; border-color: var(--accent);
+    }
+    
+    .radio-group { display: flex; gap: 24px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: #fff; height: 48px; align-items: center; }
+    .radio-item { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: background 0.2s ease; }
+    .radio-item input { accent-color: var(--accent); width: 18px; height: 18px; margin: 0; cursor: pointer; }
+    .radio-item span { font-size: 0.95rem; font-weight: 500; color: var(--text); }
+    .radio-item:hover { background: #f6f8ff; }
     .radio-item input:checked + span { color: var(--accent); font-weight: 700; }
-    .signature-panel { grid-column: span 12; display: grid; gap: 14px; }
-    .signature-box { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #fff; min-height: 210px; }
+    
+    .signature-panel { grid-column: span 12; display: grid; gap: 14px; width: 100%; }
+    .signature-box { position: relative; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: #fff; min-height: 210px; width: 100%; }
     #signatureCanvas { width: 100%; height: 210px; display: block; cursor: crosshair; }
     .signature-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
     .signature-actions button, .submit-button { cursor: pointer; border: none; border-radius: 999px; padding: 12px 22px; font-weight: 700; font-size: 0.95rem; }
     .signature-actions button { background: #eef2ff; color: var(--text); }
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
-    @media (max-width: 920px) { .half { grid-column: span 12; } .form-panel { padding: 22px 20px 28px; } }
-    @media (max-width: 640px) { body { padding: 16px; } }
+
+    @media (max-width: 768px) { 
+      .half { grid-column: span 12; } 
+      .form-panel { padding: 16px 12px; }
+      body { padding: 12px 8px; }
+    }
   </style>
 </head>
 <body>
@@ -75,37 +129,110 @@
     <div class="header">
       <div class="logo"><span class="brand">nextan</span><span>Service Form</span></div>
     </div>
-    <form class="form-panel" id="serviceForm" action="/submit" method="post" enctype="multipart/form-data">
+    <form class="form-panel" id="serviceForm" onsubmit="return false;" enctype="multipart/form-data">
       <div class="form-grid">
         <div class="field half"><label>Job site<span class="required">*</span></label><input type="text" name="jobSite" placeholder="Job site" required /></div>
         <div class="field half"><label>Location<span class="required">*</span></label><input type="text" name="location" placeholder="Location" required /></div>
-        <div class="field half"><label>Date of Service<span class="required">*</span></label><input type="date" name="serviceDate" required /></div>
-        <div class="field half"><label>Time of Service<span class="required">*</span></label><input type="time" name="serviceTime" required /></div>
+        
+        <div class="field half"><label>Date of Service<span class="required">*</span></label><input type="date" name="serviceDate" id="serviceDate" required /></div>
+        <div class="field half"><label>Time of Service<span class="required">*</span></label><input type="time" name="serviceTime" id="serviceTime" required /></div>
+        
         <div class="field full"><label>Service Request<span class="required">*</span></label><input type="text" name="serviceRequest" placeholder="Service request" required /></div>
         <div class="field full"><label>Service Details<span class="required">*</span></label><textarea name="serviceDetails" placeholder="Describe service details" required></textarea></div>
-        <div class="field half"><label>Company Name<span class="required">*</span></label><input type="text" name="clientOrganisation" placeholder="Company name" required /></div>
-        <div class="field half"><label>Customer Name<span class="required">*</span></label><input type="text" name="clientName" placeholder="Customer name" required /></div>
-        <div class="field half"><label>Customer Email address<span class="required">*</span></label><input type="email" name="clientEmails" placeholder="customer@example.com" required /><div class="helper">This is where the service form will be sent.</div></div>
-        <div class="field half"><label>Technician/Engineer Email Address<span class="required">*</span></label><select name="staffEmails" id="staffEmailsDropdown" required><option value="">Please select</option></select><div class="helper">This is where the service form will be sent.</div></div>
-        <div class="field full upload-card"><div><div><strong>File / Image upload</strong></div><div>Choose files or drag here</div><input type="file" name="attachments" multiple /></div></div>
-        <div class="field half"><label>Invoiceable Service<span class="required">*</span></label><div class="radio-group"><label class="radio-item"><input type="radio" name="invoiceable" value="true" required /><span>Yes</span></label><label class="radio-item"><input type="radio" name="invoiceable" value="false" checked /><span>No</span></label></div></div>
+        
+        <div class="field half">
+          <label>Company Name<span class="required">*</span></label>
+          <input type="text" name="clientOrganisation" id="clientOrganisation" placeholder="Type Company (e.g. Sheraton Towers)" list="companySuggestions" autocomplete="off" required />
+          <datalist id="companySuggestions"></datalist>
+        </div>
+
+        <div class="field half">
+          <label>Customer Name<span class="required">*</span></label>
+          <input type="text" name="clientName" id="clientName" placeholder="Type Name" list="customerSuggestions" autocomplete="off" required />
+          <datalist id="customerSuggestions"></datalist>
+        </div>
+        
+        <div class="field half">
+          <label>Customer Email address<span class="required">*</span></label>
+          <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" required />
+          <div class="helper">This is where the service form will be sent.</div>
+        </div>
+        
+        <div class="field half">
+          <label>Technician/Engineer Email Address<span class="required">*</span></label>
+          <div class="multiselect-container" id="staffMultiselect">
+            <div class="select-box" id="selectBoxValue">Please select</div>
+            <div class="dropdown-options" id="staffOptionsContainer"></div>
+          </div>
+          <div class="helper">This is where the service form will be sent. You can select multiple.</div>
+        </div>
+        
+        <div class="field full upload-card">
+          <div class="upload-text-wrapper">
+            <strong>File / Image upload</strong><br>
+            Choose files or drag here
+          </div>
+          <div class="custom-upload-btn" id="uploadStatusText">Choose Files</div>
+          <input type="file" name="attachments" id="fileInputElement" multiple />
+        </div>
+        
+        <div class="field half">
+          <label>Invoiceable Service<span class="required">*</span></label>
+          <div class="radio-group">
+            <label class="radio-item">
+              <input type="radio" name="invoiceable" value="true" required />
+              <span>Yes</span>
+            </label>
+            <label class="radio-item">
+              <input type="radio" name="invoiceable" value="false" checked />
+              <span>No</span>
+            </label>
+          </div>
+        </div>
+        
         <div class="field full signature-panel"><label>Customer Signature<span class="required">*</span></label><div class="signature-box"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button type="button" id="clearSignature">Clear</button><span class="helper">Sign inside the box. This signature will be submitted with the form.</span></div></div>
         <input type="hidden" name="signature" id="signatureValue" />
-        <div class="field full"><button type="submit" class="submit-button">Submit the Support Form</button></div>
+        <div class="field full"><button type="submit" class="submit-button" id="submitBtn">Submit the Support Form</button></div>
       </div>
     </form>
   </div>
   <script>
+    const BASE_URL = "https://service-form-production.up.railway.app";
+    let relationalCompaniesDatabase = [];
+
     const form = document.getElementById('serviceForm');
+    const submitBtn = document.getElementById('submitBtn');
     const canvas = document.getElementById('signatureCanvas');
     const clearSignature = document.getElementById('clearSignature');
     const signatureValue = document.getElementById('signatureValue');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
+    
+    const multiselect = document.getElementById('staffMultiselect');
+    const selectBoxValue = document.getElementById('selectBoxValue');
+    const optionsContainer = document.getElementById('staffOptionsContainer');
+
+    // JS tracker to dynamically change button text when files are selected
+    const fileInputElement = document.getElementById('fileInputElement');
+    const uploadStatusText = document.getElementById('uploadStatusText');
+    
+    fileInputElement.addEventListener('change', (e) => {
+      const fileCount = e.target.files.length;
+      if (fileCount === 0) {
+        uploadStatusText.textContent = "Choose Files";
+      } else if (fileCount === 1) {
+        uploadStatusText.textContent = e.target.files[0].name;
+      } else {
+        uploadStatusText.textContent = `${fileCount} files selected`;
+      }
+    });
+    
     const resizeCanvas = () => {
       const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); ctx.lineCap = 'round'; ctx.strokeStyle = '#111827'; ctx.lineWidth = 3;
     };
     resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+    
     let drawing = false; let lastX = 0; let lastY = 0;
     const getPointer = (event) => {
       const rect = canvas.getBoundingClientRect(); const x = (event.clientX || event.touches[0].clientX) - rect.left; const y = (event.clientY || event.touches[0].clientY) - rect.top; return { x, y };
@@ -119,16 +246,127 @@
     canvas.addEventListener('mousemove', draw); canvas.addEventListener('touchmove', (event) => { draw(event); });
     canvas.addEventListener('mouseup', stopDrawing); canvas.addEventListener('mouseleave', stopDrawing); canvas.addEventListener('touchend', stopDrawing);
     clearSignature.addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); signatureValue.value = ''; });
-    form.addEventListener('submit', (event) => { signatureValue.value = canvas.toDataURL('image/png'); });
+
+    selectBoxValue.addEventListener('click', (e) => { e.stopPropagation(); multiselect.classList.toggle('open'); });
+    document.addEventListener('click', () => { multiselect.classList.remove('open'); });
+    optionsContainer.addEventListener('click', (e) => e.stopPropagation());
+
+    function updateSelectedDisplay() {
+      const checkedBoxes = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+      if (checkedBoxes.length === 0) selectBoxValue.textContent = "Please select";
+      else if (checkedBoxes.length === 1) selectBoxValue.textContent = checkedBoxes[0].value;
+      else selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
+    }
+
+    document.getElementById('clientOrganisation').addEventListener('input', (e) => {
+      const selectedCompany = e.target.value.trim();
+      const customerDatalist = document.getElementById('customerSuggestions');
+      customerDatalist.innerHTML = '';
+      
+      if(!selectedCompany) {
+        document.getElementById('clientName').value = '';
+        document.getElementById('clientEmails').value = '';
+        return;
+      }
+
+      const match = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === selectedCompany.toLowerCase());
+      if (match && match.customers) {
+        match.customers.forEach(cust => {
+          const opt = document.createElement('option');
+          opt.value = cust.name;
+          customerDatalist.appendChild(opt);
+        });
+      }
+    });
+
+    document.getElementById('clientName').addEventListener('input', (e) => {
+      const targetCompany = document.getElementById('clientOrganisation').value.trim();
+      const targetCustomer = e.target.value.trim();
+
+      const companyMatch = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === targetCompany.toLowerCase());
+      if (companyMatch && companyMatch.customers) {
+        const customerMatch = companyMatch.customers.find(cust => cust.name.toLowerCase() === targetCustomer.toLowerCase());
+        if (customerMatch) {
+          document.getElementById('clientEmails').value = customerMatch.email;
+        }
+      }
+    });
+
     document.addEventListener("DOMContentLoaded", () => {
-      fetch('/config').then(res => res.json()).then(config => {
-        const dropdown = document.getElementById('staffEmailsDropdown');
-        if (config.staffOptions && dropdown) {
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      document.getElementById('serviceDate').value = `${year}-${month}-${day}`;
+      
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      document.getElementById('serviceTime').value = `${hours}:${minutes}`;
+
+      fetch(`${BASE_URL}/config`)
+      .then(res => res.json())
+      .then(config => {
+        if (config.staffOptions && optionsContainer) {
+          optionsContainer.innerHTML = '';
           config.staffOptions.forEach(email => {
-            const opt = document.createElement('option'); opt.value = email; opt.textContent = email; dropdown.appendChild(opt);
+            const label = document.createElement('label'); label.className = 'option-checkbox';
+            const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.value = email;
+            checkbox.addEventListener('change', updateSelectedDisplay);
+            label.appendChild(checkbox); label.appendChild(document.createTextNode(email));
+            optionsContainer.appendChild(label);
           });
         }
-      }).catch(err => console.error("Config load error: ", err));
+
+        if (config.companiesDatabase) {
+          relationalCompaniesDatabase = config.companiesDatabase;
+          const companyDatalist = document.getElementById('companySuggestions');
+          companyDatalist.innerHTML = '';
+          
+          config.companiesDatabase.forEach(item => {
+            const opt = document.createElement('option');
+            opt.value = item.companyName;
+            companyDatalist.appendChild(opt);
+          });
+        }
+      })
+      .catch(err => console.error("Config tracking error: ", err));
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const selectedBoxes = optionsContainer.querySelectorAll('input[type="checkbox"]:checked');
+      if (selectedBoxes.length === 0) { alert("Please select at least one Engineer Email Address."); return; }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending Document Pack...";
+      signatureValue.value = canvas.toDataURL('image/png');
+
+      const formData = new FormData(form);
+      const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
+      formData.append('staffEmails', staffEmailsArray.join(','));
+
+      fetch(`${BASE_URL}/submit`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if(data.success) {
+           alert("Success! The service form has been securely dispatched.");
+           form.reset();
+           ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+           selectBoxValue.textContent = "Please select";
+           uploadStatusText.textContent = "Choose Files";
+           document.dispatchEvent(new Event('DOMContentLoaded'));
+        } else {
+           alert("Submission Error: " + data.error);
+        }
+      })
+      .catch(err => { alert("Could not reach the server engine."); })
+      .finally(() => {
+         submitBtn.disabled = false;
+         submitBtn.textContent = "Submit the Support Form";
+      });
     });
   </script>
 </body>

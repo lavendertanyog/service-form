@@ -1,55 +1,78 @@
 package com.example.demo;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
+
 import java.io.ByteArrayOutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
 
-    @Value("${SENDGRID_API_KEY}")
-    private String apiKey;
+    @Autowired
+    private CompanyRepository companyRepository;
 
-    @Value("${app.default-from:eunicetanyongnie@gmail.com}")
-    private String defaultFrom;
+    @Autowired
+    private CustomerRepository customerRepository;
 
-    @Value("${app.finance-emails:unicorntanyongnie@gmail.com,finance2@nextan.com}")
+    @Value("${SENDGRID_API_KEY:}")
+    private String sendGridApiKey;
+
+    @Value("${app.default-from}")
+    private String defaultFromEmail;
+
+    @Value("${app.finance-emails}")
     private String financeEmailsRaw;
 
-    @Value("${app.staff-emails:janicelav9@gmail.com,tech2@nextan.com,engineer3@nextan.com}")
+    @Value("${app.staff-emails}")
     private String staffEmailsRaw;
 
-    private final RestClient restClient = RestClient.builder()
-            .baseUrl("https://api.sendgrid.com/v3")
-            .build();
+    private final RestTemplate restTemplate = new RestTemplate();
 
+    // Preload companies and their specific employee databases
+    @PostConstruct
+    public void initDefaultDatabase() {
+        if (companyRepository.count() == 0) {
+            // Setup Sheraton Towers
+            Company sheraton = companyRepository.save(new Company("Sheraton Towers"));
+            customerRepository.save(new Customer("Mr. Siva", "siva.hanadana@STowers.com", sheraton));
+
+            // Setup Nextan
+            Company nextan = companyRepository.save(new Company("Nextan"));
+            customerRepository.save(new Customer("Justin Low", "justin.low@nextan.com.sg", nextan));
+        }
+    }
+
+    // Sends out company arrays along with all their linked employees
     @GetMapping("/config")
     public Map<String, Object> getConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put("defaultFrom", defaultFrom);
+        config.put("defaultFrom", defaultFromEmail);
         config.put("financeEmails", parseRecipients(financeEmailsRaw));
         config.put("staffOptions", parseRecipients(staffEmailsRaw));
+        
+        // Pass everything out so frontend can sort customers by company locally
+        List<Map<String, Object>> companyDataList = new ArrayList<>();
+        for (Company comp : companyRepository.findAll()) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("companyName", comp.getCompanyName());
+            
+            List<Map<String, String>> custs = new ArrayList<>();
+            for (Customer c : comp.getCustomers()) {
+                custs.add(Map.of("name", c.getClientName(), "email", c.getClientEmails()));
+            }
+            map.put("customers", custs);
+            companyDataList.add(map);
+        }
+        config.put("companiesDatabase", companyDataList);
         return config;
     }
 
@@ -71,6 +94,12 @@ public class ServiceFormController {
 
         Map<String, Object> response = new HashMap<>();
 
+        if (sendGridApiKey == null || sendGridApiKey.trim().isEmpty()) {
+            response.put("success", false);
+            response.put("error", "Backend Configuration Error: SendGrid API Key missing.");
+            return response;
+        }
+
         try {
             List<String> customerEmails = parseRecipients(clientEmails);
             List<String> staffEmailsList = parseRecipients(staffEmails);
@@ -81,25 +110,21 @@ public class ServiceFormController {
                 return response;
             }
 
-            Set<String> ccEmails = new HashSet<>(staffEmailsList);
-            if (invoiceable) {
-                ccEmails.addAll(parseRecipients(financeEmailsRaw));
+            // DYNAMIC CAPTURE: Match or Create Company first, then add the customer under it!
+            String rawCompany = clientOrganisation.trim();
+            String rawCustomerName = clientName.trim();
+            
+            Company company = companyRepository.findByCompanyNameIgnoreCase(rawCompany)
+                    .orElseGet(() -> companyRepository.save(new Company(rawCompany)));
+
+            boolean customerExists = company.getCustomers().stream()
+                    .anyMatch(c -> c.getClientName().equalsIgnoreCase(rawCustomerName));
+
+            if (!customerExists) {
+                customerRepository.save(new Customer(rawCustomerName, clientEmails.trim(), company));
             }
 
-            List<Map<String, String>> toList = customerEmails.stream()
-                    .map(email -> Map.of("email", email))
-                    .toList();
-
-            Map<String, Object> personalizationMap = new HashMap<>();
-            personalizationMap.put("to", toList);
-
-            if (!ccEmails.isEmpty()) {
-                List<Map<String, String>> ccList = ccEmails.stream()
-                        .map(email -> Map.of("email", email))
-                        .toList();
-                personalizationMap.put("cc", ccList);
-            }
-
+            // Build out email text template block
             String summaryText = "==================================================\n" +
                "               NEXTAN SERVICE FORM SUMMARY        \n" +
                "==================================================\n" +
@@ -115,51 +140,78 @@ public class ServiceFormController {
                "--------------------------------------------------\n" +
                "Attending Staff Email  : " + staffEmails + "\n" +
                "Invoiceable Flagged    : " + (invoiceable ? "YES" : "NO") + "\n" +
-               "==================================================";
+               "==================================================\n";
 
-            Map<String, Object> fromDetails = Map.of("email", defaultFrom, "name", "Nextan Service Team");
-            Map<String, Object> contentDetails = Map.of("type", "text/plain", "value", 
-                    "Hello,\n\nPlease find the completed service form summary details documentation pack attached.\n\nThank you.");
+            Map<String, Object> requestBody = new HashMap<>();
+            List<Map<String, Object>> personalizations = new ArrayList<>();
+            Map<String, Object> personalization = new HashMap<>();
             
-            List<Map<String, String>> attachmentsList = new ArrayList<>();
-            
-            String encodedSummary = Base64.getEncoder().encodeToString(summaryText.getBytes());
-            attachmentsList.add(Map.of("content", encodedSummary, "type", "text/plain", "filename", "service-form-summary.txt"));
+            List<Map<String, String>> toList = new ArrayList<>();
+            for (String email : customerEmails) {
+                toList.add(Map.of("email", email));
+            }
+            personalization.put("to", toList);
+
+            List<Map<String, String>> ccList = new ArrayList<>();
+            for (String email : staffEmailsList) {
+                ccList.add(Map.of("email", email));
+            }
+            if (invoiceable) {
+                for (String email : parseRecipients(financeEmailsRaw)) {
+                    ccList.add(Map.of("email", email));
+                }
+            }
+            if (!ccList.isEmpty()) {
+                personalization.put("cc", ccList);
+            }
+            personalizations.add(personalization);
+            requestBody.put("personalizations", personalizations);
+
+            String subject = "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : "");
+            requestBody.put("subject", subject);
+            requestBody.put("from", Map.of("email", defaultFromEmail, "name", "Nextan Service Team"));
+            requestBody.put("content", List.of(Map.of(
+                "type", "text/plain",
+                "value", "Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you."
+            )));
+
+            List<Map<String, String>> attachments = new ArrayList<>();
+            String base64Summary = Base64.getEncoder().encodeToString(summaryText.getBytes());
+            attachments.add(Map.of("content", base64Summary, "filename", "service-form-summary.txt", "type", "text/plain"));
 
             if (signatureBase64 != null && signatureBase64.contains(",")) {
                 String cleanBase64 = signatureBase64.split(",")[1];
-                attachmentsList.add(Map.of("content", cleanBase64, "type", "image/png", "filename", "customer-signature.png"));
+                attachments.add(Map.of("content", cleanBase64, "filename", "customer-signature.png", "type", "image/png"));
             }
 
             if (files != null && files.length > 0 && !files[0].isEmpty()) {
                 byte[] zipBytes = createZipArchive(files);
-                String encodedZip = Base64.getEncoder().encodeToString(zipBytes);
-                attachmentsList.add(Map.of("content", encodedZip, "type", "application/zip", "filename", "service-form-attachments.zip"));
+                String base64Zip = Base64.getEncoder().encodeToString(zipBytes);
+                attachments.add(Map.of("content", base64Zip, "filename", "service-form-attachments.zip", "type", "application/zip"));
             }
 
-            Map<String, Object> sendGridPayload = new HashMap<>();
-            sendGridPayload.put("personalizations", List.of(personalizationMap));
-            sendGridPayload.put("from", fromDetails);
-            sendGridPayload.put("subject", "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : ""));
-            sendGridPayload.put("content", List.of(contentDetails));
-            if (!attachmentsList.isEmpty()) {
-                sendGridPayload.put("attachments", attachmentsList);
+            if (!attachments.isEmpty()) {
+                requestBody.put("attachments", attachments);
             }
 
-            restClient.post()
-                    .uri("/mail/send")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(sendGridPayload)
-                    .retrieve()
-                    .toBodilessEntity();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(sendGridApiKey);
 
-            response.put("success", true);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+            ResponseEntity<String> apiResponse = restTemplate.postForEntity("https://api.sendgrid.com/v3/mail/send", entity, String.class);
+
+            if (apiResponse.getStatusCode().is2xxSuccessful()) {
+                response.put("success", true);
+            } else {
+                response.put("success", false);
+                response.put("error", "SendGrid API Error: " + apiResponse.getBody());
+            }
             return response;
 
         } catch (Exception e) {
             response.put("success", false);
-            response.put("error", "REST API Engine Error: " + e.getMessage());
+            response.put("error", "Application Exception: " + e.getMessage());
             return response;
         }
     }
