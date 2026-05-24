@@ -18,6 +18,9 @@ import java.util.zip.ZipOutputStream;
 public class ServiceFormController {
 
     @Autowired
+    private CompanyRepository companyRepository;
+
+    @Autowired
     private CustomerRepository customerRepository;
 
     @Value("${SENDGRID_API_KEY:}")
@@ -34,18 +37,21 @@ public class ServiceFormController {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    // 1. Initial Setup: Populate example profiles if database is empty
+    // Preload companies and their specific employee databases
     @PostConstruct
-    public void initDefaultCustomers() {
-        if (customerRepository.count() == 0) {
-            customerRepository.save(new Customer("Eunice Tan", "Nextan Pte Ltd", "eunicetanyongnie@gmail.com"));
-            customerRepository.save(new Customer("Ethan Lim", "Eunice Tech Solutions", "unicorntanyongnie@gmail.com"));
-            customerRepository.save(new Customer("Janice Lav", "Global Logistics Asia", "janicelav9@gmail.com"));
-            customerRepository.save(new Customer("Rebecca Goh", "Unicorn Finance Corp", "rebecca.goh@nextan.com"));
+    public void initDefaultDatabase() {
+        if (companyRepository.count() == 0) {
+            // Setup Sheraton Towers
+            Company sheraton = companyRepository.save(new Company("Sheraton Towers"));
+            customerRepository.save(new Customer("Mr. Siva", "siva.hanadana@STowers.com", sheraton));
+
+            // Setup Nextan
+            Company nextan = companyRepository.save(new Company("Nextan"));
+            customerRepository.save(new Customer("Justin Low", "justin.low@nextan.com.sg", nextan));
         }
     }
 
-    // Feed dynamic customer profiles directly to frontend datalists
+    // Sends out company arrays along with all their linked employees
     @GetMapping("/config")
     public Map<String, Object> getConfig() {
         Map<String, Object> config = new HashMap<>();
@@ -53,8 +59,20 @@ public class ServiceFormController {
         config.put("financeEmails", parseRecipients(financeEmailsRaw));
         config.put("staffOptions", parseRecipients(staffEmailsRaw));
         
-        // Pass all captured customers out to the webpage dropdown elements
-        config.put("savedCustomers", customerRepository.findAll());
+        // Pass everything out so frontend can sort customers by company locally
+        List<Map<String, Object>> companyDataList = new ArrayList<>();
+        for (Company comp : companyRepository.findAll()) {
+            Map<String, Object> map = new HashMap<>();
+            map.put("companyName", comp.getCompanyName());
+            
+            List<Map<String, String>> custs = new ArrayList<>();
+            for (Customer c : comp.getCustomers()) {
+                custs.add(Map.of("name", c.getClientName(), "email", c.getClientEmails()));
+            }
+            map.put("customers", custs);
+            companyDataList.add(map);
+        }
+        config.put("companiesDatabase", companyDataList);
         return config;
     }
 
@@ -92,14 +110,21 @@ public class ServiceFormController {
                 return response;
             }
 
-            // 2. Capture and Save: If this client name isn't in database, save it for future autocomplete!
-            String cleanName = clientName.trim();
-            Optional<Customer> existingCustomer = customerRepository.findByClientNameIgnoreCase(cleanName);
-            if (existingCustomer.isEmpty()) {
-                customerRepository.save(new Customer(cleanName, clientOrganisation.trim(), clientEmails.trim()));
+            // DYNAMIC CAPTURE: Match or Create Company first, then add the customer under it!
+            String rawCompany = clientOrganisation.trim();
+            String rawCustomerName = clientName.trim();
+            
+            Company company = companyRepository.findByCompanyNameIgnoreCase(rawCompany)
+                    .orElseGet(() -> companyRepository.save(new Company(rawCompany)));
+
+            boolean customerExists = company.getCustomers().stream()
+                    .anyMatch(c -> c.getClientName().equalsIgnoreCase(rawCustomerName));
+
+            if (!customerExists) {
+                customerRepository.save(new Customer(rawCustomerName, clientEmails.trim(), company));
             }
 
-            // Build out email documentation block
+            // Build out email text template block
             String summaryText = "==================================================\n" +
                "               NEXTAN SERVICE FORM SUMMARY        \n" +
                "==================================================\n" +
