@@ -1,83 +1,29 @@
 package com.example.demo;
 
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.util.ByteArrayDataSource;
 import java.io.ByteArrayOutputStream;
-import java.util.*;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
 @RestController
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
 
     @Autowired
-    private CompanyRepository companyRepository;
-
-    @Autowired
-    private CustomerRepository customerRepository;
-
-    @Value("${SENDGRID_API_KEY:}")
-    private String sendGridApiKey;
-
-    @Value("${app.default-from}")
-    private String defaultFromEmail;
-
-    @Value("${app.finance-emails}")
-    private String financeEmailsRaw;
-
-    @Value("${app.staff-emails}")
-    private String staffEmailsRaw;
-
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    // Preload companies and their specific employee databases
-    @PostConstruct
-    public void initDefaultDatabase() {
-        if (companyRepository.count() == 0) {
-            // Setup Sheraton Towers
-            Company sheraton = companyRepository.save(new Company("Sheraton Towers"));
-            customerRepository.save(new Customer("Mr. Siva", "siva.hanadana@STowers.com", sheraton));
-
-            // Setup Nextan
-            Company nextan = companyRepository.save(new Company("Nextan"));
-            customerRepository.save(new Customer("Justin Low", "justin.low@nextan.com.sg", nextan));
-        }
-    }
-
-    // Sends out company arrays along with all their linked employees
-    @GetMapping("/config")
-    public Map<String, Object> getConfig() {
-        Map<String, Object> config = new HashMap<>();
-        config.put("defaultFrom", defaultFromEmail);
-        config.put("financeEmails", parseRecipients(financeEmailsRaw));
-        config.put("staffOptions", parseRecipients(staffEmailsRaw));
-        
-        // Pass everything out so frontend can sort customers by company locally
-        List<Map<String, Object>> companyDataList = new ArrayList<>();
-        for (Company comp : companyRepository.findAll()) {
-            Map<String, Object> map = new HashMap<>();
-            map.put("companyName", comp.getCompanyName());
-            
-            List<Map<String, String>> custs = new ArrayList<>();
-            for (Customer c : comp.getCustomers()) {
-                custs.add(Map.of("name", c.getClientName(), "email", c.getClientEmails()));
-            }
-            map.put("customers", custs);
-            companyDataList.add(map);
-        }
-        config.put("companiesDatabase", companyDataList);
-        return config;
-    }
+    private JavaMailSender mailSender;
 
     @PostMapping("/submit")
-    public Map<String, Object> handleSubmit(
+    public String handleSubmit(
             @RequestParam("jobSite") String jobSite,
             @RequestParam("location") String location,
             @RequestParam("serviceDate") String serviceDate,
@@ -87,154 +33,107 @@ public class ServiceFormController {
             @RequestParam("clientOrganisation") String clientOrganisation,
             @RequestParam("clientName") String clientName,
             @RequestParam("clientEmails") String clientEmails,
-            @RequestParam("staffEmails") String staffEmails,
-            @RequestParam("invoiceable") boolean invoiceable,
-            @RequestParam(value = "signature", required = false) String signatureBase64,
-            @RequestParam(value = "attachments", required = false) MultipartFile[] files) {
-
-        Map<String, Object> response = new HashMap<>();
-
-        if (sendGridApiKey == null || sendGridApiKey.trim().isEmpty()) {
-            response.put("success", false);
-            response.put("error", "Backend Configuration Error: SendGrid API Key missing.");
-            return response;
-        }
+            @RequestParam(value = "staffEmails", required = false) String staffEmails,
+            @RequestParam("invoiceable") String invoiceable,
+            @RequestParam("signature") String signatureBase64,
+            @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
-            List<String> customerEmails = parseRecipients(clientEmails);
-            List<String> staffEmailsList = parseRecipients(staffEmails);
+            MimeMessage message = mailSender.createMimeMessage();
+            // Enable multipart mode (true) for attaching files
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            if (customerEmails.isEmpty()) {
-                response.put("success", false);
-                response.put("error", "At least one client recipient email is required.");
-                return response;
-            }
+            // 1. Configure dynamic recipients
+            List<String> recipients = new ArrayList<>();
+            recipients.add(clientEmails.trim());
 
-            // DYNAMIC CAPTURE: Match or Create Company first, then add the customer under it!
-            String rawCompany = clientOrganisation.trim();
-            String rawCustomerName = clientName.trim();
-            
-            Company company = companyRepository.findByCompanyNameIgnoreCase(rawCompany)
-                    .orElseGet(() -> companyRepository.save(new Company(rawCompany)));
-
-            boolean customerExists = company.getCustomers().stream()
-                    .anyMatch(c -> c.getClientName().equalsIgnoreCase(rawCustomerName));
-
-            if (!customerExists) {
-                customerRepository.save(new Customer(rawCustomerName, clientEmails.trim(), company));
-            }
-
-            // Build out email text template block
-            String summaryText = "==================================================\n" +
-               "               NEXTAN SERVICE FORM SUMMARY        \n" +
-               "==================================================\n" +
-               "Client Profile name    : " + clientName + "\n" +
-               "Client Organisation    : " + clientOrganisation + "\n" +
-               "Client Core Emails     : " + clientEmails + "\n" +
-               "--------------------------------------------------\n" +
-               "Job Site Location      : " + jobSite + " (" + location + ")\n" +
-               "Execution Timestamp    : " + serviceDate + " @ " + serviceTime + "\n" +
-               "--------------------------------------------------\n" +
-               "Service Request Line   : " + serviceRequest + "\n" +
-               "Detailed Service Logs  : \n" + serviceDetails + "\n" +
-               "--------------------------------------------------\n" +
-               "Attending Staff Email  : " + staffEmails + "\n" +
-               "Invoiceable Flagged    : " + (invoiceable ? "YES" : "NO") + "\n" +
-               "==================================================\n";
-
-            Map<String, Object> requestBody = new HashMap<>();
-            List<Map<String, Object>> personalizations = new ArrayList<>();
-            Map<String, Object> personalization = new HashMap<>();
-            
-            List<Map<String, String>> toList = new ArrayList<>();
-            for (String email : customerEmails) {
-                toList.add(Map.of("email", email));
-            }
-            personalization.put("to", toList);
-
-            List<Map<String, String>> ccList = new ArrayList<>();
-            for (String email : staffEmailsList) {
-                ccList.add(Map.of("email", email));
-            }
-            if (invoiceable) {
-                for (String email : parseRecipients(financeEmailsRaw)) {
-                    ccList.add(Map.of("email", email));
+            if (staffEmails != null && !staffEmails.trim().isEmpty()) {
+                for (String email : staffEmails.split(",")) {
+                    recipients.add(email.trim());
                 }
             }
-            if (!ccList.isEmpty()) {
-                personalization.put("cc", ccList);
-            }
-            personalizations.add(personalization);
-            requestBody.put("personalizations", personalizations);
 
-            String subject = "Service Form for " + clientName + (invoiceable ? " (Invoiceable)" : "");
-            requestBody.put("subject", subject);
-            requestBody.put("from", Map.of("email", defaultFromEmail, "name", "Nextan Service Team"));
-            requestBody.put("content", List.of(Map.of(
-                "type", "text/plain",
-                "value", "Hello,\n\nPlease find the completed service form details documentation pack attached.\n\nThank you."
-            )));
-
-            List<Map<String, String>> attachments = new ArrayList<>();
-            String base64Summary = Base64.getEncoder().encodeToString(summaryText.getBytes());
-            attachments.add(Map.of("content", base64Summary, "filename", "service-form-summary.txt", "type", "text/plain"));
-
-            if (signatureBase64 != null && signatureBase64.contains(",")) {
-                String cleanBase64 = signatureBase64.split(",")[1];
-                attachments.add(Map.of("content", cleanBase64, "filename", "customer-signature.png", "type", "image/png"));
+            // Route to Rebecca if flagged as Invoiceable Service
+            if ("true".equalsIgnoreCase(invoiceable)) {
+                recipients.add("rebecca.goh@nextan.com.sg");
             }
 
-            if (files != null && files.length > 0 && !files[0].isEmpty()) {
-                byte[] zipBytes = createZipArchive(files);
-                String base64Zip = Base64.getEncoder().encodeToString(zipBytes);
-                attachments.add(Map.of("content", base64Zip, "filename", "service-form-attachments.zip", "type", "application/zip"));
+            helper.setTo(recipients.toArray(new String[0]));
+            
+            // 2. Set the custom subject line
+            helper.setSubject("Nextan Service Form for " + clientName);
+
+            // 3. Set the clean, updated text email body
+            String emailBody = String.format(
+                "Dear %s from %s,\n\n" +
+                "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
+                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next three working days.\n\n" +
+                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
+                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.\n\n\n" +
+                "Best,\n" +
+                "Nextan Service Team.\n" +
+                "67 Ayer Rajah Crescent #04-21\n" +
+                "+65 6872 6423",
+                clientName, clientOrganisation, jobSite
+            );
+            helper.setText(emailBody);
+
+            // 4. Generate beautiful PDF string template mapping the submitted details
+            String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
+                    "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
+                    ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
+                    ".title { font-size: 24px; font-weight: bold; color: #0f172a; }" +
+                    ".invoice-tag { background: #d63335; color: white; padding: 4px 12px; font-size: 12px; float: right; font-weight: bold; }" +
+                    ".field-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 15px; border-radius: 6px; }" +
+                    ".label { font-size: 11px; font-weight: bold; color: #6c7284; text-transform: uppercase; margin-bottom: 5px; }" +
+                    ".val { font-size: 14px; }" +
+                    ".signature-box { margin-top: 30px; border: 1px solid #d6d9e6; padding: 15px; width: 350px; }" +
+                    "</style></head><body>" +
+                    "<div class=\"header\">" +
+                    ("true".equalsIgnoreCase(invoiceable) ? "<div class=\"invoice-tag\">INVOICEABLE SERVICE</div>" : "") +
+                    "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
+                    "</div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Job Site / Location</div><div class=\"val\">" + jobSite + " (" + location + ")</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Date &amp; Time of Service</div><div class=\"val\">" + serviceDate + " at " + serviceTime + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Customer Name</div><div class=\"val\">" + clientName + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Service Request</div><div class=\"val\">" + serviceRequest + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\" style=\"white-space: pre-wrap;\">" + serviceDetails + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Assigned Engineers</div><div class=\"val\">" + (staffEmails != null ? staffEmails : "") + "</div></div>" +
+                    "<div class=\"signature-box\"><div class=\"label\">Customer Signature</div>" +
+                    "<img src=\"" + signatureBase64 + "\" style=\"max-width:300px; height:auto;\" />" +
+                    "</div>" +
+                    "</body></html>";
+
+            // 5. Build and render the HTML layout cleanly directly to a PDF byte buffer
+            ByteArrayOutputStream os = new ByteArrayOutputStream();
+            PdfRendererBuilder builder = new PdfRendererBuilder();
+            builder.withHtmlContent(pdfHtmlTemplate, "/");
+            builder.toStream(os);
+            builder.run();
+            byte[] pdfBytes = os.toByteArray();
+
+            // 6. Attach the newly minted PDF layout form directly to the email
+            String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
+            ByteArrayDataSource pdfDataSource = new ByteArrayDataSource(pdfBytes, "application/pdf");
+            helper.addAttachment(safeFileName, pdfDataSource);
+
+            // 7. Loop and append custom media uploads uploaded by the customer
+            if (attachments != null) {
+                for (MultipartFile file : attachments) {
+                    if (!file.isEmpty()) {
+                        helper.addAttachment(file.getOriginalFilename(), file);
+                    }
+                }
             }
 
-            if (!attachments.isEmpty()) {
-                requestBody.put("attachments", attachments);
-            }
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.setBearerAuth(sendGridApiKey);
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-            ResponseEntity<String> apiResponse = restTemplate.postForEntity("https://api.sendgrid.com/v3/mail/send", entity, String.class);
-
-            if (apiResponse.getStatusCode().is2xxSuccessful()) {
-                response.put("success", true);
-            } else {
-                response.put("success", false);
-                response.put("error", "SendGrid API Error: " + apiResponse.getBody());
-            }
-            return response;
+            // 8. Fire off the complete bundle email out!
+            mailSender.send(message);
+            return "{\"success\": true}";
 
         } catch (Exception e) {
-            response.put("success", false);
-            response.put("error", "Application Exception: " + e.getMessage());
-            return response;
+            e.printStackTrace();
+            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
-    }
-
-    private List<String> parseRecipients(String value) {
-        if (value == null || value.trim().isEmpty()) return Collections.emptyList();
-        return Arrays.stream(value.split("[,;\\n]+"))
-                .map(String::trim)
-                .filter(item -> !item.isEmpty())
-                .toList();
-    }
-
-    private byte[] createZipArchive(MultipartFile[] files) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            for (MultipartFile file : files) {
-                if (file.isEmpty()) continue;
-                ZipEntry entry = new ZipEntry(Objects.requireNonNull(file.getOriginalFilename()));
-                zos.putNextEntry(entry);
-                zos.write(file.getBytes());
-                zos.closeEntry();
-            }
-        }
-        return baos.toByteArray();
     }
 }
