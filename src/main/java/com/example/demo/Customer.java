@@ -1,5 +1,6 @@
 package com.example.demo;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -10,27 +11,29 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String clientName;
     
-    private String clientOrganisation;
     private String clientEmails;
 
-    // Constructors
+    @ManyToOne
+    @JoinColumn(name = "company_id", nullable = false)
+    @JsonIgnore // Prevents infinite loops when converting database data to JSON
+    private Company company;
+
     public Customer() {}
     
-    public Customer(String clientName, String clientOrganisation, String clientEmails) {
+    public Customer(String clientName, String clientEmails, Company company) {
         this.clientName = clientName;
-        this.clientOrganisation = clientOrganisation;
         this.clientEmails = clientEmails;
+        this.company = company;
     }
 
-    // Getters and Setters
     public Long getId() { return id; }
     public String getClientName() { return clientName; }
     public void setClientName(String clientName) { this.clientName = clientName; }
-    public String getClientOrganisation() { return clientOrganisation; }
-    public void setClientOrganisation(String clientOrganisation) { this.clientOrganisation = clientOrganisation; }
     public String getClientEmails() { return clientEmails; }
     public void setClientEmails(String clientEmails) { this.clientEmails = clientEmails; }
+    public Company getCompany() { return company; }
+    public void setCompany(Company company) { this.company = company; }
 }
