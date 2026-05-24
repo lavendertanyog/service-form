@@ -14,17 +14,13 @@
       --accent: #1f7efd;
       --danger: #d63335;
       --radius: 16px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
-    
-    { 
-      box-sizing: border-box; 
-      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
-    }
-    
+    * { box-sizing: border-box; }
     body {
       margin: 0; min-height: 100vh;
       background: linear-gradient(180deg, #f6f8fc 0%, #eef2f8 100%);
-      color: var(--text); padding: 16px;
+      color: var(--text); padding: 16px; /* Optimized padding for small screens */
     }
     .container {
       width: 100%; max-width: 1000px; margin: 0 auto; background: var(--panel);
@@ -45,11 +41,12 @@
     .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
     .field label .required { color: var(--danger); margin-left: 3px; }
     
+    /* UNIFORM & MOBILE OVERFLOW FIXES */
     .field input, .field textarea, .field select {
       width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 12px;
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
       height: 48px; line-height: 1.2;
-      -webkit-appearance: none;
+      -webkit-appearance: none; /* Strips unique iOS element bugs */
       appearance: none;
     }
     .field textarea { min-height: 130px; height: auto; resize: vertical; }
@@ -100,6 +97,7 @@
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
+    /* MOBILE SCALE-DOWN RULE: Safely targets everything inside layout grid */
     @media (max-width: 768px) { 
       .half { grid-column: span 12; } 
       .form-panel { padding: 16px 12px; }
@@ -138,7 +136,7 @@
         <div class="field half">
           <label>Customer Email address<span class="required">*</span></label>
           <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" required />
-          <div class="helper">(This is where the service form will be sent.)</div>
+          <div class="helper">This is where the service form will be sent.</div>
         </div>
         
         <div class="field half">
@@ -147,7 +145,7 @@
             <div class="select-box" id="selectBoxValue">Please select</div>
             <div class="dropdown-options" id="staffOptionsContainer"></div>
           </div>
-          <div class="helper">(This is where the service form will be sent. You can select multiple.)</div>
+          <div class="helper">This is where the service form will be sent. You can select multiple.</div>
         </div>
         
         <div class="field full upload-card"><div><div><strong>File / Image upload</strong></div><div>Choose files or drag here</div><input type="file" name="attachments" multiple /></div></div>
