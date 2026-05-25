@@ -2,27 +2,27 @@ package com.example.demo;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.mail.internet.MimeMessage;
-import jakarta.mail.util.ByteArrayDataSource;
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.sendgrid.*;
+import com.sendgrid.helpers.mail.Mail;
+import com.sendgrid.helpers.mail.objects.*;
 
 @RestController
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${SENDGRID_API_KEY}")
+    private String sendGridApiKey;
 
     @Value("${ADMIN_SECRET_TOKEN:mydefaultsecrettoken}")
     private String adminSecretToken;
@@ -33,81 +33,16 @@ public class ServiceFormController {
     @Autowired(required = false)
     private CustomerRepository customerRepository;
 
-    // ==========================================
-    // NEW ENDPOINT: CONFIG LAYER FOR DROPDOWN LISTS
-    // ==========================================
     @GetMapping("/config")
     public String getConfig() {
-        // Hardcode your technician emails here so they populate the dropdown menu dynamically!
         String staffOptionsJson = "[\"janicelav9@gmail.com\", \"tech2@nextan.com\", \"engineer3@nextan.com\"]";
-        
-        // Fetch existing database structures if active, otherwise fallback gracefully
         String companiesJson = "[]";
-        try {
-            if (companyRepository != null) {
-                // If you want to serialize your companies database to JSON, you can use Jackson ObjectMapper.
-                // For now, providing a clean fallback so the frontend works smoothly.
-                companiesJson = "[]"; 
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         return "{\n" +
                "  \"staffOptions\": " + staffOptionsJson + ",\n" +
                "  \"companiesDatabase\": " + companiesJson + "\n" +
                "}";
     }
 
-    // ==========================================
-    // ADMIN BACKDOOR 1: ADD NEW COMPANY MANUALLY
-    // ==========================================
-    @PostMapping("/admin/add-company")
-    public String addCompany(
-            @RequestHeader(value = "X-Admin-Token", required = false) String providedToken,
-            @RequestParam("companyName") String companyName) {
-        if (providedToken == null || !providedToken.equals(adminSecretToken)) {
-            return "{\"success\": false, \"error\": \"Unauthorized\"}";
-        }
-        try {
-            if (companyRepository == null) return "{\"success\": false, \"error\": \"Missing Repository\"}";
-            Company company = new Company(companyName.trim());
-            companyRepository.save(company);
-            return "{\"success\": true, \"message\": \"Added company: \" + companyName + \"\"}";
-        } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // ==========================================
-    // ADMIN BACKDOOR 2: ADD NEW CUSTOMER MANUALLY
-    // ==========================================
-    @PostMapping("/admin/add-customer")
-    public String addCustomer(
-            @RequestHeader(value = "X-Admin-Token", required = false) String providedToken,
-            @RequestParam("customerName") String customerName,
-            @RequestParam("customerEmail") String customerEmail,
-            @RequestParam("companyId") Long companyId) {
-        if (providedToken == null || !providedToken.equals(adminSecretToken)) {
-            return "{\"success\": false, \"error\": \"Unauthorized\"}";
-        }
-        try {
-            if (companyRepository == null || customerRepository == null) return "{\"success\": false, \"error\": \"Repositories missing\"}";
-            Optional<Company> companyOptional = companyRepository.findById(companyId);
-            if (!companyOptional.isPresent()) return "{\"success\": false, \"error\": \"Company not found\"}";
-            
-            Company parentCompany = companyOptional.get();
-            Customer customer = new Customer(customerName.trim(), customerEmail.trim(), parentCompany);
-            customerRepository.save(customer);
-            return "{\"success\": true, \"message\": \"Added customer \" + customerName + \"\"}";
-        } catch (Exception e) {
-            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
-        }
-    }
-
-    // ==========================================
-    // CORE SERVICE SHEET FORM SUBMIT (WITH AUTO-SAVE)
-    // ==========================================
     @PostMapping("/submit")
     public String handleSubmit(
             @RequestParam("jobSite") String jobSite,
@@ -125,9 +60,7 @@ public class ServiceFormController {
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
-            // ---------------------------------------------------------------
-            // DATABASE AUTO-SAVE LAYER
-            // ---------------------------------------------------------------
+            // Database Layer Auto-Save
             if (companyRepository != null && customerRepository != null) {
                 String cleanCompanyName = clientOrganisation.trim();
                 String cleanCustomerName = clientName.trim();
@@ -141,12 +74,10 @@ public class ServiceFormController {
                         break;
                     }
                 }
-
                 if (targetCompany == null) {
                     targetCompany = new Company(cleanCompanyName);
                     targetCompany = companyRepository.save(targetCompany);
                 }
-
                 boolean customerExists = false;
                 if (targetCompany.getCustomers() != null) {
                     for (Customer cust : targetCompany.getCustomers()) {
@@ -156,70 +87,39 @@ public class ServiceFormController {
                         }
                     }
                 }
-
                 if (!customerExists) {
                     Customer newCustomer = new Customer(cleanCustomerName, cleanCustomerEmail, targetCompany);
                     customerRepository.save(newCustomer);
                 }
             }
 
-            // ---------------------------------------------------------------
-            // DYNAMIC TECHNICIAN NAME PARSING LAYER
-            // ---------------------------------------------------------------
+            // Parse Technicians Names
             List<String> technicianNames = new ArrayList<>();
-            List<String> recipients = new ArrayList<>();
-            recipients.add(clientEmails.trim());
+            List<String> recipientsList = new ArrayList<>();
+            recipientsList.add(clientEmails.trim());
 
             if (staffEmails != null && !staffEmails.trim().isEmpty()) {
                 for (String email : staffEmails.split(",")) {
                     String cleanEmail = email.trim();
-                    recipients.add(cleanEmail);
-                    
-                    // Extracts a clean display name from email (e.g. "janicelav9@gmail.com" -> "Janicelav9")
+                    recipientsList.add(cleanEmail);
                     if (cleanEmail.contains("@")) {
                         String handle = cleanEmail.split("@")[0];
                         if (!handle.isEmpty()) {
-                            String formattedName = handle.substring(0, 1).toUpperCase() + handle.substring(1);
-                            technicianNames.add(formattedName);
+                            technicianNames.add(handle.substring(0, 1).toUpperCase() + handle.substring(1));
                         }
                     } else {
                         technicianNames.add(cleanEmail);
                     }
                 }
             }
-
             String displayTechnicians = technicianNames.isEmpty() ? "Not Assigned" : String.join(", ", technicianNames);
 
             if ("true".equalsIgnoreCase(invoiceable)) {
-                recipients.add("rebecca.goh@nextan.com.sg");
+                recipientsList.add("rebecca.goh@nextan.com.sg");
             }
 
-            // ---------------------------------------------------------------
-            // EMAIL LOGIC LAYER
-            // ---------------------------------------------------------------
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-
-            helper.setTo(recipients.toArray(new String[0]));
-            helper.setSubject("Nextan Service Form for " + clientName);
-
-            String emailBody = String.format(
-                "Dear %s from %s,\n\n" +
-                "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
-                "Assigned Engineer(s): %s\n\n" +
-                "Best,\nNextan Service Team.",
-                clientName, clientOrganisation, jobSite, displayTechnicians
-            );
-            helper.setText(emailBody);
-
-            String cleanSignatureData = signatureBase64;
-            if (cleanSignatureData.contains(",")) {
-                cleanSignatureData = cleanSignatureData.split(",")[1];
-            }
-
-            // ---------------------------------------------------------------
-            // PDF GENERATION LAYER (With Engineer Display Attached)
-            // ---------------------------------------------------------------
+            // Generate HTML to PDF Bytes
+            String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
                     ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
@@ -251,24 +151,98 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
-            ByteArrayDataSource pdfDataSource = new ByteArrayDataSource(pdfBytes, "application/pdf");
-            helper.addAttachment(safeFileName, pdfDataSource);
+            // Construct HTTP API Mail Request Object
+            Email from = new Email("noreply@nextan.com.sg"); // Verify this domain/email is verified in SendGrid!
+            String subject = "Nextan Service Form for " + clientName;
+            
+            String emailBodyText = String.format(
+                "Dear %s from %s,\n\n" +
+                "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
+                "Assigned Engineer(s): %s\n\n" +
+                "Best,\nNextan Service Team.",
+                clientName, clientOrganisation, jobSite, displayTechnicians
+            );
+            Content content = new Content("text/plain", emailBodyText);
 
+            // Construct personalization layer for multi-recipient dispatch
+            Personalization personalization = new Personalization();
+            for (String recipientEmail : recipientsList) {
+                personalization.addTo(new Email(recipientEmail));
+            }
+
+            Mail mail = new Mail();
+            mail.setFrom(from);
+            mail.setSubject(subject);
+            mail.addContent(content);
+            mail.addPersonalization(personalization);
+
+            // Attach Generated Summary PDF via Base64
+            String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
+            Attachments pdfAttachment = new Attachments();
+            pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
+            pdfAttachment.setType("application/pdf");
+            pdfAttachment.setFilename(safeFileName);
+            pdfAttachment.setDisposition("attachment");
+            mail.addAttachments(pdfAttachment);
+
+            // Process Custom UI File Upload Attachments
             if (attachments != null) {
                 for (MultipartFile file : attachments) {
                     if (!file.isEmpty()) {
-                        helper.addAttachment(file.getOriginalFilename(), file);
+                        Attachments customFile = new Attachments();
+                        customFile.setContent(Base64.getEncoder().encodeToString(file.getBytes()));
+                        customFile.setType(file.getContentType());
+                        customFile.setFilename(file.getOriginalFilename());
+                        customFile.setDisposition("attachment");
+                        mail.addAttachments(customFile);
                     }
                 }
             }
 
-            mailSender.send(message);
-            return "{\"success\": true}";
+            // Execute Native HTTP Request Call
+            SendGrid sg = new SendGrid(sendGridApiKey);
+            Request request = new Request();
+            request.setMethod(Method.POST);
+            request.setEndpoint("mail/send");
+            request.setBody(mail.build());
+            
+            Response response = sg.api(request);
+            
+            if (response.getStatusCode() >= 200 && response.getStatusCode() < 300) {
+                return "{\"success\": true}";
+            } else {
+                return "{\"success\": false, \"error\": \"SendGrid API Error: " + response.getBody() + "\"}";
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
+    }
+    
+    // Admin Backdoor endpoints remain unchanged below...
+    @PostMapping("/admin/add-company")
+    public String addCompany(@RequestHeader(value = "X-Admin-Token", required = false) String providedToken, @RequestParam("companyName") String companyName) {
+        if (providedToken == null || !providedToken.equals(adminSecretToken)) return "{\"success\": false, \"error\": \"Unauthorized\"}";
+        try {
+            if (companyRepository == null) return "{\"success\": false, \"error\": \"Missing Repository\"}";
+            Company company = new Company(companyName.trim());
+            companyRepository.save(company);
+            return "{\"success\": true, \"message\": \"Added company: \" + companyName}";
+        } catch (Exception e) { return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}"; }
+    }
+
+    @PostMapping("/admin/add-customer")
+    public String addCustomer(@RequestHeader(value = "X-Admin-Token", required = false) String providedToken, @RequestParam("customerName") String customerName, @RequestParam("customerEmail") String customerEmail, @RequestParam("companyId") Long companyId) {
+        if (providedToken == null || !providedToken.equals(adminSecretToken)) return "{\"success\": false, \"error\": \"Unauthorized\"}";
+        try {
+            if (companyRepository == null || customerRepository == null) return "{\"success\": false, \"error\": \"Repositories missing\"}";
+            Optional<Company> companyOptional = companyRepository.findById(companyId);
+            if (!companyOptional.isPresent()) return "{\"success\": false, \"error\": \"Company not found\"}";
+            Company parentCompany = companyOptional.get();
+            Customer customer = new Customer(customerName.trim(), customerEmail.trim(), parentCompany);
+            customerRepository.save(customer);
+            return "{\"success\": true, \"message\": \"Added customer \" + customerName}";
+        } catch (Exception e) { return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}"; }
     }
 }
