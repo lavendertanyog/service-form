@@ -151,6 +151,31 @@
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
+    /* SPAM/JUNK MAIL REMINDER STYLING */
+    .spam-disclaimer {
+      grid-column: span 12;
+      display: flex;
+      gap: 12px;
+      background: #fff9e6;
+      border: 1px solid #ffeaa7;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-top: 4px;
+      align-items: flex-start;
+    }
+    .spam-icon {
+      font-size: 1.2rem;
+      line-height: 1.2;
+    }
+    .spam-text {
+      font-size: 0.88rem;
+      color: #7d5a00;
+      line-height: 1.5;
+    }
+    .spam-text strong {
+      color: #5c4200;
+    }
+
     @media (max-width: 768px) { 
       .half { grid-column: span 12; } 
       .form-panel { padding: 16px 12px; }
@@ -226,8 +251,23 @@
           </div>
         </div>
         
-        <div class="field full signature-panel"><label>Customer Signature<span class="required">*</span></label><div class="signature-box"><canvas id="signatureCanvas"></canvas></div><div class="signature-actions"><button type="button" id="clearSignature">Clear</button><span class="helper">Sign inside the box. This signature will be submitted with the form.</span></div></div>
+        <div class="field full signature-panel">
+          <label>Customer Signature<span class="required">*</span></label>
+          <div class="signature-box"><canvas id="signatureCanvas"></canvas></div>
+          <div class="signature-actions">
+            <button type="button" id="clearSignature">Clear</button>
+            <span class="helper">Sign inside the box. This signature will be submitted with the form.</span>
+          </div>
+        </div>
         <input type="hidden" name="signature" id="signatureValue" />
+
+        <div class="field full spam-disclaimer">
+          <div class="spam-icon">💡</div>
+          <div class="spam-text">
+            <strong>Note on Email Delivery:</strong> The automated service sheet document will be sent out instantly. If you or the customer don't see it in the main inbox within a few minutes, please check the <strong>Junk / Spam folder</strong>.
+          </div>
+        </div>
+
         <div class="field full"><button type="submit" class="submit-button" id="submitBtn">Submit the Support Form</button></div>
       </div>
     </form>
@@ -252,7 +292,6 @@
     const uploadStatusText = document.getElementById('uploadStatusText');
     const filePreviewList = document.getElementById('filePreviewList');
     
-    // Persistent file storage array
     let uploadedFilesAccumulator = [];
 
     fileInputElement.addEventListener('change', (e) => {
@@ -266,7 +305,6 @@
       renderFilePreviews();
     });
 
-    // Renders the filename elements and interactive delete button anchors
     function renderFilePreviews() {
       filePreviewList.innerHTML = "";
       
@@ -289,7 +327,6 @@
         removeBtn.className = 'remove-file-btn';
         removeBtn.innerHTML = '&times;';
         
-        // FIX: Replaced syntax error layout context to fully execute splice routines
         removeBtn.addEventListener('click', () => {
           uploadedFilesAccumulator.splice(index, 1);
           renderFilePreviews();
