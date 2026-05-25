@@ -28,6 +28,10 @@ public class ServiceFormController {
     @Value("${ADMIN_SECRET_TOKEN:mydefaultsecrettoken}")
     private String adminSecretToken;
 
+    // Injecting the finance emails tracking parameter 
+    @Value("${app.finance-emails:rebecca.goh@nextan.com.sg}")
+    private String financeEmails;
+
     @Autowired(required = false)
     private CompanyRepository companyRepository; 
 
@@ -36,7 +40,8 @@ public class ServiceFormController {
 
     @GetMapping("/config")
     public String getConfig() {
-        String staffOptionsJson = "[\"janicelav9@gmail.com\", \"tech2@nextan.com\", \"engineer3@nextan.com\"]";
+        // Keeps configuration mapping clean and synchronized with standard lowercase defaults
+        String staffOptionsJson = "[\"john.tan@nextan.com.sg\", \"junan.yong@nextan.com.sg\"]";
         
         // Fetch real data directly from the company database table layer
         String companiesJson = "[]";
@@ -126,8 +131,14 @@ public class ServiceFormController {
             }
             String displayTechnicians = technicianNames.isEmpty() ? "Not Assigned" : String.join(", ", technicianNames);
 
-            if ("true".equalsIgnoreCase(invoiceable)) {
-                recipientsList.add("rebecca.goh@nextan.com.sg");
+            // Automatically route to custom finance configuration properties if item is invoiceable
+            if ("true".equalsIgnoreCase(invoiceable) && financeEmails != null && !financeEmails.trim().isEmpty()) {
+                for (String finEmail : financeEmails.split(",")) {
+                    String cleanFinEmail = finEmail.trim();
+                    if (!cleanFinEmail.isEmpty()) {
+                        recipientsList.add(cleanFinEmail);
+                    }
+                }
             }
 
             // Generate HTML to PDF Bytes
