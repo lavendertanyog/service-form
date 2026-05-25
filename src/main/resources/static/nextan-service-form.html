@@ -108,23 +108,27 @@
       background: #f4f7ff; border-color: var(--accent);
     }
     
-    /* NEW: Styled Uploaded Items Preview Badges Grid */
+    /* Dynamic File Badges Container Layout */
     .preview-list {
-      grid-column: span 12; display: flex; flex-wrap: wrap; gap: 8px; margin-top: -8px; width: 100%;
+      grid-column: span 12; display: flex; flex-wrap: wrap; gap: 10px; margin-top: -6px; width: 100%;
     }
     .preview-badge {
-      display: inline-flex; align-items: center; gap: 8px; background: #eef2f6; 
-      color: var(--text); padding: 6px 12px; border-radius: 8px; font-size: 0.88rem; 
-      font-weight: 500; border: 1px solid #dcdfe8; max-width: 280px;
+      display: inline-flex; align-items: center; justify-content: space-between; gap: 10px; 
+      background: #f0f4f9; color: var(--text); padding: 8px 14px; border-radius: 10px; 
+      font-size: 0.9rem; font-weight: 500; border: 1px solid #d2d6e4; max-width: 100%;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.02);
     }
     .preview-badge span {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px;
     }
     .preview-badge .remove-file-btn {
-      background: none; border: none; color: var(--danger); font-weight: 700; 
-      cursor: pointer; padding: 0 2px; font-size: 1rem; line-height: 1;
+      background: #e2e7ef; border: none; color: var(--danger); font-weight: 700; 
+      cursor: pointer; padding: 2px 6px; font-size: 0.95rem; line-height: 1; border-radius: 6px;
+      transition: background 0.2s, transform 0.1s;
     }
-    .preview-badge .remove-file-btn:hover { transform: scale(1.2); }
+    .preview-badge .remove-file-btn:hover { 
+      background: #ffdcd2; transform: scale(1.05); 
+    }
     
     .radio-group { display: flex; gap: 24px; padding: 12px 16px; border: 1px solid var(--border); border-radius: 14px; background: #fff; height: 48px; align-items: center; }
     .radio-item { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 8px; border-radius: 8px; transition: background 0.2s ease; }
@@ -244,28 +248,25 @@
     const selectBoxValue = document.getElementById('selectBoxValue');
     const optionsContainer = document.getElementById('staffOptionsContainer');
 
-    // --- NEW: ADVANCED PERSISTENT MULTI-FILE ARCHITECTURE ---
     const fileInputElement = document.getElementById('fileInputElement');
     const uploadStatusText = document.getElementById('uploadStatusText');
     const filePreviewList = document.getElementById('filePreviewList');
     
-    // Hidden array tracking ALL cumulative added files securely
+    // Persistent file storage array
     let uploadedFilesAccumulator = [];
 
     fileInputElement.addEventListener('change', (e) => {
       const selectedFiles = Array.from(e.target.files);
       
-      // Append newly tapped files into our long-term tracker array
       selectedFiles.forEach(file => {
         uploadedFilesAccumulator.push(file);
       });
       
-      // Reset the file input memory so user can click to choose the same or different files again
       fileInputElement.value = "";
-      
       renderFilePreviews();
     });
 
+    // Renders the filename elements and interactive delete button anchors
     function renderFilePreviews() {
       filePreviewList.innerHTML = "";
       
@@ -288,8 +289,8 @@
         removeBtn.className = 'remove-file-btn';
         removeBtn.innerHTML = '&times;';
         
-        // Remove individual file out of the queue if clicked
-        removeBtn.addEventListener('click', () -> {
+        // FIX: Replaced syntax error layout context to fully execute splice routines
+        removeBtn.addEventListener('click', () => {
           uploadedFilesAccumulator.splice(index, 1);
           renderFilePreviews();
         });
@@ -414,16 +415,12 @@
       submitBtn.textContent = "Sending Document Pack...";
       signatureValue.value = canvas.toDataURL('image/png');
 
-      // Build out data schema natively
       const formData = new FormData(form);
       const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
-      formData.delete('staffEmails'); // Clear any empty text slots
+      formData.delete('staffEmails');
       formData.append('staffEmails', staffEmailsArray.join(','));
 
-      // Remove the standard single element field payload to prevent null entries
       formData.delete('attachments');
-
-      // --- SUBMIT COMPILATION: Inject persistent array attachments line-by-line ---
       uploadedFilesAccumulator.forEach(file => {
         formData.append('attachments', file);
       });
@@ -439,7 +436,7 @@
            form.reset();
            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr);
            selectBoxValue.textContent = "Please select";
-           uploadedFilesAccumulator = []; // Clear array
+           uploadedFilesAccumulator = [];
            renderFilePreviews();
            document.dispatchEvent(new Event('DOMContentLoaded'));
         } else {
