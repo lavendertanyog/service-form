@@ -369,8 +369,9 @@
       else selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
     }
 
+    // Dynamic autocomplete suggestion logic for Client Customer list
     document.getElementById('clientOrganisation').addEventListener('input', (e) => {
-      const selectedCompany = e.target.value.trim();
+      const selectedCompany = e.target.value.trim().toLowerCase();
       const customerDatalist = document.getElementById('customerSuggestions');
       customerDatalist.innerHTML = '';
       
@@ -380,25 +381,31 @@
         return;
       }
 
-      const match = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === selectedCompany.toLowerCase());
+      const match = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === selectedCompany);
       if (match && match.customers) {
         match.customers.forEach(cust => {
           const opt = document.createElement('option');
-          opt.value = cust.name;
+          // Maps to clientName, falls back safely to generic key structural properties
+          opt.value = cust.clientName || cust.name || "";
           customerDatalist.appendChild(opt);
         });
       }
     });
 
+    // Dynamic Autofill structure logic for email lookup parameters
     document.getElementById('clientName').addEventListener('input', (e) => {
-      const targetCompany = document.getElementById('clientOrganisation').value.trim();
-      const targetCustomer = e.target.value.trim();
+      const targetCompany = document.getElementById('clientOrganisation').value.trim().toLowerCase();
+      const targetCustomer = e.target.value.trim().toLowerCase();
 
-      const companyMatch = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === targetCompany.toLowerCase());
+      const companyMatch = relationalCompaniesDatabase.find(c => c.companyName.toLowerCase() === targetCompany);
       if (companyMatch && companyMatch.customers) {
-        const customerMatch = companyMatch.customers.find(cust => cust.name.toLowerCase() === targetCustomer.toLowerCase());
+        const customerMatch = companyMatch.customers.find(cust => {
+          const checkName = (cust.clientName || cust.name || "").toLowerCase();
+          return checkName === targetCustomer;
+        });
+        
         if (customerMatch) {
-          document.getElementById('clientEmails').value = customerMatch.email;
+          document.getElementById('clientEmails').value = customerMatch.clientEmails || customerMatch.email || "";
         }
       }
     });

@@ -12,6 +12,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.sendgrid.*;
 import com.sendgrid.helpers.mail.Mail;
@@ -36,7 +37,18 @@ public class ServiceFormController {
     @GetMapping("/config")
     public String getConfig() {
         String staffOptionsJson = "[\"janicelav9@gmail.com\", \"tech2@nextan.com\", \"engineer3@nextan.com\"]";
+        
+        // Fetch real data directly from the company database table layer
         String companiesJson = "[]";
+        if (companyRepository != null) {
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                companiesJson = mapper.writeValueAsString(companyRepository.findAll());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        
         return "{\n" +
                "  \"staffOptions\": " + staffOptionsJson + ",\n" +
                "  \"companiesDatabase\": " + companiesJson + "\n" +
@@ -152,15 +164,14 @@ public class ServiceFormController {
             byte[] pdfBytes = os.toByteArray();
 
             // Construct HTTP API Mail Request Object
-            Email from = new Email("eunicetanyongnie@gmail.com"); // Verify this domain/email is verified in SendGrid!
-           // 1. Build the dynamic email subject
+            Email from = new Email("eunicetanyongnie@gmail.com"); 
             String subject = "Nextan Service Form for " + clientName;
             
-            // 2. Build the exact dynamic email body
             String emailBodyText = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
-                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.\n\n" +                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
+                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.\n\n" +
+                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.\n\n\n" +
                 "Best,\n" +
                 "Nextan Service Team.\n\n" +
@@ -171,7 +182,6 @@ public class ServiceFormController {
             
             Content content = new Content("text/html", emailBodyText);
 
-            // Construct personalization layer for multi-recipient dispatch
             Personalization personalization = new Personalization();
             for (String recipientEmail : recipientsList) {
                 personalization.addTo(new Email(recipientEmail));
@@ -227,7 +237,6 @@ public class ServiceFormController {
         }
     }
     
-    // Admin Backdoor endpoints remain unchanged below...
     @PostMapping("/admin/add-company")
     public String addCompany(@RequestHeader(value = "X-Admin-Token", required = false) String providedToken, @RequestParam("companyName") String companyName) {
         if (providedToken == null || !providedToken.equals(adminSecretToken)) return "{\"success\": false, \"error\": \"Unauthorized\"}";
