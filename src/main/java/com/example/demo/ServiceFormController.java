@@ -27,7 +27,6 @@ public class ServiceFormController {
     @Value("${ADMIN_SECRET_TOKEN:mydefaultsecrettoken}")
     private String adminSecretToken;
 
-    // Direct interface links matching your repositories
     @Autowired(required = false)
     private CompanyRepository companyRepository; 
 
@@ -35,33 +34,27 @@ public class ServiceFormController {
     private CustomerRepository customerRepository;
 
     // ==========================================
-    // BACKDOOR 1: ADD NEW COMPANY TO DATABASE
+    // ADMIN BACKDOOR 1: ADD NEW COMPANY MANUALLY
     // ==========================================
     @PostMapping("/admin/add-company")
     public String addCompany(
             @RequestHeader(value = "X-Admin-Token", required = false) String providedToken,
             @RequestParam("companyName") String companyName) {
-        
         if (providedToken == null || !providedToken.equals(adminSecretToken)) {
-            return "{\"success\": false, \"error\": \"Unauthorized: Invalid Admin Token\"}";
+            return "{\"success\": false, \"error\": \"Unauthorized\"}";
         }
-
         try {
-            if (companyRepository == null) {
-                return "{\"success\": false, \"error\": \"CompanyRepository bean missing from project setup.\"}";
-            }
-            
+            if (companyRepository == null) return "{\"success\": false, \"error\": \"Missing Repository\"}";
             Company company = new Company(companyName.trim());
             companyRepository.save(company);
-            
-            return "{\"success\": true, \"message\": \"Successfully added company: " + companyName + "\"}";
+            return "{\"success\": true, \"message\": \"Added company: " + companyName + "\"}";
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
     }
 
     // ==========================================
-    // BACKDOOR 2: ADD NEW CUSTOMER TO DATABASE
+    // ADMIN BACKDOOR 2: ADD NEW CUSTOMER MANUALLY
     // ==========================================
     @PostMapping("/admin/add-customer")
     public String addCustomer(
@@ -69,36 +62,25 @@ public class ServiceFormController {
             @RequestParam("customerName") String customerName,
             @RequestParam("customerEmail") String customerEmail,
             @RequestParam("companyId") Long companyId) {
-        
         if (providedToken == null || !providedToken.equals(adminSecretToken)) {
-            return "{\"success\": false, \"error\": \"Unauthorized: Invalid Admin Token\"}";
+            return "{\"success\": false, \"error\": \"Unauthorized\"}";
         }
-
         try {
-            if (companyRepository == null || customerRepository == null) {
-                return "{\"success\": false, \"error\": \"Database repositories are not initialized.\"}";
-            }
-            
-            // 1. Look up the existing company object from the database by its numerical ID
+            if (companyRepository == null || customerRepository == null) return "{\"success\": false, \"error\": \"Repositories missing\"}";
             Optional<Company> companyOptional = companyRepository.findById(companyId);
-            if (!companyOptional.isPresent()) {
-                return "{\"success\": false, \"error\": \"Company with ID " + companyId + " not found inside the database.\"}";
-            }
+            if (!companyOptional.isPresent()) return "{\"success\": false, \"error\": \"Company not found\"}";
             
             Company parentCompany = companyOptional.get();
-
-            // 2. Build the customer object using the proper Entity Constructor rules
             Customer customer = new Customer(customerName.trim(), customerEmail.trim(), parentCompany);
             customerRepository.save(customer);
-            
-            return "{\"success\": true, \"message\": \"Successfully added customer " + customerName + " under " + parentCompany.getCompanyName() + "\"}";
+            return "{\"success\": true, \"message\": \"Added customer " + customerName + "\"}";
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
     }
 
     // ==========================================
-    // CORE CUSTOMER SERVICE SHEET FORM SUBMIT
+    // CORE SERVICE SHEET FORM SUBMIT (WITH AUTO-SAVE)
     // ==========================================
     @PostMapping("/submit")
     public String handleSubmit(
@@ -117,6 +99,51 @@ public class ServiceFormController {
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
+            // ---------------------------------------------------------------
+            // DATABASE AUTO-SAVE LAYER
+            // ---------------------------------------------------------------
+            if (companyRepository != null && customerRepository != null) {
+                String cleanCompanyName = clientOrganisation.trim();
+                String cleanCustomerName = clientName.trim();
+                String cleanCustomerEmail = clientEmails.trim();
+
+                // 1. Check if the company already exists in our database records
+                List<Company> existingCompanies = companyRepository.findAll();
+                Company targetCompany = null;
+                for (Company comp : existingCompanies) {
+                    if (comp.getCompanyName().equalsIgnoreCase(cleanCompanyName)) {
+                        targetCompany = comp;
+                        break;
+                    }
+                }
+
+                // 2. If it's a completely new company name, create it on the fly
+                if (targetCompany == null) {
+                    targetCompany = new Company(cleanCompanyName);
+                    targetCompany = companyRepository.save(targetCompany); // Saves to Postgres & grabs active identity ID
+                }
+
+                // 3. Check if this customer email is already registered under that company
+                boolean customerExists = false;
+                if (targetCompany.getCustomers() != null) {
+                    for (Customer cust : targetCompany.getCustomers()) {
+                        if (cust.getClientEmails().equalsIgnoreCase(cleanCustomerEmail)) {
+                            customerExists = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 4. If the email doesn't exist, save them as a new contact directory record automatically
+                if (!customerExists) {
+                    Customer newCustomer = new Customer(cleanCustomerName, cleanCustomerEmail, targetCompany);
+                    customerRepository.save(newCustomer);
+                }
+            }
+
+            // ---------------------------------------------------------------
+            // EMAIL LOGIC LAYER
+            // ---------------------------------------------------------------
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -139,13 +166,7 @@ public class ServiceFormController {
             String emailBody = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
-                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next three working days.\n\n" +
-                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
-                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.\n\n\n" +
-                "Best,\n" +
-                "Nextan Service Team.\n" +
-                "67 Ayer Rajah Crescent #04-21\n" +
-                "+65 6872 6423",
+                "Best,\nNextan Service Team.",
                 clientName, clientOrganisation, jobSite
             );
             helper.setText(emailBody);
@@ -159,23 +180,17 @@ public class ServiceFormController {
                     "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
                     ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
                     ".title { font-size: 24px; font-weight: bold; color: #0f172a; }" +
-                    ".invoice-tag { background: #d63335; color: white; padding: 4px 12px; font-size: 12px; float: right; font-weight: bold; }" +
                     ".field-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 15px; border-radius: 6px; }" +
                     ".label { font-size: 11px; font-weight: bold; color: #6c7284; text-transform: uppercase; margin-bottom: 5px; }" +
                     ".val { font-size: 14px; }" +
                     ".signature-box { margin-top: 30px; border: 1px solid #d6d9e6; padding: 15px; width: 350px; }" +
                     "</style></head><body>" +
                     "<div class=\"header\">" +
-                    ("true".equalsIgnoreCase(invoiceable) ? "<div class=\"invoice-tag\">INVOICEABLE SERVICE</div>" : "") +
                     "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
                     "</div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Job Site / Location</div><div class=\"val\">" + jobSite + " (" + location + ")</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Date &amp; Time of Service</div><div class=\"val\">" + serviceDate + " at " + serviceTime + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Customer Name</div><div class=\"val\">" + clientName + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Service Request</div><div class=\"val\">" + serviceRequest + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\" style=\"white-space: pre-wrap;\">" + serviceDetails + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Assigned Engineers</div><div class=\"val\">" + (staffEmails != null ? staffEmails : "") + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\">" + serviceDetails + "</div></div>" +
                     "<div class=\"signature-box\"><div class=\"label\">Customer Signature</div>" +
                     "<img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:300px; height:120px;\" />" +
                     "</div>" +
@@ -183,7 +198,6 @@ public class ServiceFormController {
 
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             PdfRendererBuilder builder = new PdfRendererBuilder();
-            
             builder.useFastMode(); 
             builder.withHtmlContent(pdfHtmlTemplate, "/");
             builder.toStream(os);
