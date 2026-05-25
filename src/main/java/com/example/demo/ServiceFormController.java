@@ -1,6 +1,7 @@
 package com.example.demo;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 
@@ -22,6 +24,82 @@ public class ServiceFormController {
     @Autowired
     private JavaMailSender mailSender;
 
+    @Value("${ADMIN_SECRET_TOKEN:mydefaultsecrettoken}")
+    private String adminSecretToken;
+
+    // Direct interface links matching your repositories
+    @Autowired(required = false)
+    private CompanyRepository companyRepository; 
+
+    @Autowired(required = false)
+    private CustomerRepository customerRepository;
+
+    // ==========================================
+    // BACKDOOR 1: ADD NEW COMPANY TO DATABASE
+    // ==========================================
+    @PostMapping("/admin/add-company")
+    public String addCompany(
+            @RequestHeader(value = "X-Admin-Token", required = false) String providedToken,
+            @RequestParam("companyName") String companyName) {
+        
+        if (providedToken == null || !providedToken.equals(adminSecretToken)) {
+            return "{\"success\": false, \"error\": \"Unauthorized: Invalid Admin Token\"}";
+        }
+
+        try {
+            if (companyRepository == null) {
+                return "{\"success\": false, \"error\": \"CompanyRepository bean missing from project setup.\"}";
+            }
+            
+            Company company = new Company(companyName.trim());
+            companyRepository.save(company);
+            
+            return "{\"success\": true, \"message\": \"Successfully added company: " + companyName + "\"}";
+        } catch (Exception e) {
+            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ==========================================
+    // BACKDOOR 2: ADD NEW CUSTOMER TO DATABASE
+    // ==========================================
+    @PostMapping("/admin/add-customer")
+    public String addCustomer(
+            @RequestHeader(value = "X-Admin-Token", required = false) String providedToken,
+            @RequestParam("customerName") String customerName,
+            @RequestParam("customerEmail") String customerEmail,
+            @RequestParam("companyId") Long companyId) {
+        
+        if (providedToken == null || !providedToken.equals(adminSecretToken)) {
+            return "{\"success\": false, \"error\": \"Unauthorized: Invalid Admin Token\"}";
+        }
+
+        try {
+            if (companyRepository == null || customerRepository == null) {
+                return "{\"success\": false, \"error\": \"Database repositories are not initialized.\"}";
+            }
+            
+            // 1. Look up the existing company object from the database by its numerical ID
+            Optional<Company> companyOptional = companyRepository.findById(companyId);
+            if (!companyOptional.isPresent()) {
+                return "{\"success\": false, \"error\": \"Company with ID " + companyId + " not found inside the database.\"}";
+            }
+            
+            Company parentCompany = companyOptional.get();
+
+            // 2. Build the customer object using the proper Entity Constructor rules
+            Customer customer = new Customer(customerName.trim(), customerEmail.trim(), parentCompany);
+            customerRepository.save(customer);
+            
+            return "{\"success\": true, \"message\": \"Successfully added customer " + customerName + " under " + parentCompany.getCompanyName() + "\"}";
+        } catch (Exception e) {
+            return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
+        }
+    }
+
+    // ==========================================
+    // CORE CUSTOMER SERVICE SHEET FORM SUBMIT
+    // ==========================================
     @PostMapping("/submit")
     public String handleSubmit(
             @RequestParam("jobSite") String jobSite,
@@ -42,7 +120,6 @@ public class ServiceFormController {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            // 1. Configure dynamic recipients
             List<String> recipients = new ArrayList<>();
             recipients.add(clientEmails.trim());
 
@@ -52,7 +129,6 @@ public class ServiceFormController {
                 }
             }
 
-            // Route to Rebecca if flagged as Invoiceable Service
             if ("true".equalsIgnoreCase(invoiceable)) {
                 recipients.add("rebecca.goh@nextan.com.sg");
             }
@@ -60,7 +136,6 @@ public class ServiceFormController {
             helper.setTo(recipients.toArray(new String[0]));
             helper.setSubject("Nextan Service Form for " + clientName);
 
-            // 2. Set text email body
             String emailBody = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
@@ -75,9 +150,6 @@ public class ServiceFormController {
             );
             helper.setText(emailBody);
 
-            // 3. Construct the clean HTML template for the PDF layout
-            // CRITICAL FIX: We strip out potential "data:image/png;base64," prefixes if sent by the client, 
-            // and use a clean inline style block to format it as a valid image context.
             String cleanSignatureData = signatureBase64;
             if (cleanSignatureData.contains(",")) {
                 cleanSignatureData = cleanSignatureData.split(",")[1];
@@ -109,23 +181,19 @@ public class ServiceFormController {
                     "</div>" +
                     "</body></html>";
 
-            // 4. Build and render the PDF safely to a byte stream
             ByteArrayOutputStream os = new ByteArrayOutputStream();
             PdfRendererBuilder builder = new PdfRendererBuilder();
             
-            // This flag tells the builder to allow data: URI schemes (Base64 images) instead of crashing!
             builder.useFastMode(); 
             builder.withHtmlContent(pdfHtmlTemplate, "/");
             builder.toStream(os);
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // 5. Attach PDF file copy to mail message
             String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
             ByteArrayDataSource pdfDataSource = new ByteArrayDataSource(pdfBytes, "application/pdf");
             helper.addAttachment(safeFileName, pdfDataSource);
 
-            // 6. Attach any supplementary media uploads
             if (attachments != null) {
                 for (MultipartFile file : attachments) {
                     if (!file.isEmpty()) {
@@ -134,7 +202,6 @@ public class ServiceFormController {
                 }
             }
 
-            // 7. Fire off the complete email package
             mailSender.send(message);
             return "{\"success\": true}";
 
