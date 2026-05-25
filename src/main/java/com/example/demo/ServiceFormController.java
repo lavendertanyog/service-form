@@ -34,6 +34,32 @@ public class ServiceFormController {
     private CustomerRepository customerRepository;
 
     // ==========================================
+    // NEW ENDPOINT: CONFIG LAYER FOR DROPDOWN LISTS
+    // ==========================================
+    @GetMapping("/config")
+    public String getConfig() {
+        // Hardcode your technician emails here so they populate the dropdown menu dynamically!
+        String staffOptionsJson = "[\"janicelav9@gmail.com\", \"tech2@nextan.com\", \"engineer3@nextan.com\"]";
+        
+        // Fetch existing database structures if active, otherwise fallback gracefully
+        String companiesJson = "[]";
+        try {
+            if (companyRepository != null) {
+                // If you want to serialize your companies database to JSON, you can use Jackson ObjectMapper.
+                // For now, providing a clean fallback so the frontend works smoothly.
+                companiesJson = "[]"; 
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return "{\n" +
+               "  \"staffOptions\": " + staffOptionsJson + ",\n" +
+               "  \"companiesDatabase\": " + companiesJson + "\n" +
+               "}";
+    }
+
+    // ==========================================
     // ADMIN BACKDOOR 1: ADD NEW COMPANY MANUALLY
     // ==========================================
     @PostMapping("/admin/add-company")
@@ -47,7 +73,7 @@ public class ServiceFormController {
             if (companyRepository == null) return "{\"success\": false, \"error\": \"Missing Repository\"}";
             Company company = new Company(companyName.trim());
             companyRepository.save(company);
-            return "{\"success\": true, \"message\": \"Added company: " + companyName + "\"}";
+            return "{\"success\": true, \"message\": \"Added company: \" + companyName + \"\"}";
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
@@ -73,7 +99,7 @@ public class ServiceFormController {
             Company parentCompany = companyOptional.get();
             Customer customer = new Customer(customerName.trim(), customerEmail.trim(), parentCompany);
             customerRepository.save(customer);
-            return "{\"success\": true, \"message\": \"Added customer " + customerName + "\"}";
+            return "{\"success\": true, \"message\": \"Added customer \" + customerName + \"\"}";
         } catch (Exception e) {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
