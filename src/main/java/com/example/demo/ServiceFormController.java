@@ -107,7 +107,6 @@ public class ServiceFormController {
                 String cleanCustomerName = clientName.trim();
                 String cleanCustomerEmail = clientEmails.trim();
 
-                // 1. Check if the company already exists in our database records
                 List<Company> existingCompanies = companyRepository.findAll();
                 Company targetCompany = null;
                 for (Company comp : existingCompanies) {
@@ -117,13 +116,11 @@ public class ServiceFormController {
                     }
                 }
 
-                // 2. If it's a completely new company name, create it on the fly
                 if (targetCompany == null) {
                     targetCompany = new Company(cleanCompanyName);
-                    targetCompany = companyRepository.save(targetCompany); // Saves to Postgres & grabs active identity ID
+                    targetCompany = companyRepository.save(targetCompany);
                 }
 
-                // 3. Check if this customer email is already registered under that company
                 boolean customerExists = false;
                 if (targetCompany.getCustomers() != null) {
                     for (Customer cust : targetCompany.getCustomers()) {
@@ -134,11 +131,41 @@ public class ServiceFormController {
                     }
                 }
 
-                // 4. If the email doesn't exist, save them as a new contact directory record automatically
                 if (!customerExists) {
                     Customer newCustomer = new Customer(cleanCustomerName, cleanCustomerEmail, targetCompany);
                     customerRepository.save(newCustomer);
                 }
+            }
+
+            // ---------------------------------------------------------------
+            // DYNAMIC TECHNICIAN NAME PARSING LAYER
+            // ---------------------------------------------------------------
+            List<String> technicianNames = new ArrayList<>();
+            List<String> recipients = new ArrayList<>();
+            recipients.add(clientEmails.trim());
+
+            if (staffEmails != null && !staffEmails.trim().isEmpty()) {
+                for (String email : staffEmails.split(",")) {
+                    String cleanEmail = email.trim();
+                    recipients.add(cleanEmail);
+                    
+                    // Extracts a clean display name from email (e.g. "janicelav9@gmail.com" -> "Janicelav9")
+                    if (cleanEmail.contains("@")) {
+                        String handle = cleanEmail.split("@")[0];
+                        if (!handle.isEmpty()) {
+                            String formattedName = handle.substring(0, 1).toUpperCase() + handle.substring(1);
+                            technicianNames.add(formattedName);
+                        }
+                    } else {
+                        technicianNames.add(cleanEmail);
+                    }
+                }
+            }
+
+            String displayTechnicians = technicianNames.isEmpty() ? "Not Assigned" : String.join(", ", technicianNames);
+
+            if ("true".equalsIgnoreCase(invoiceable)) {
+                recipients.add("rebecca.goh@nextan.com.sg");
             }
 
             // ---------------------------------------------------------------
@@ -147,27 +174,15 @@ public class ServiceFormController {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-            List<String> recipients = new ArrayList<>();
-            recipients.add(clientEmails.trim());
-
-            if (staffEmails != null && !staffEmails.trim().isEmpty()) {
-                for (String email : staffEmails.split(",")) {
-                    recipients.add(email.trim());
-                }
-            }
-
-            if ("true".equalsIgnoreCase(invoiceable)) {
-                recipients.add("rebecca.goh@nextan.com.sg");
-            }
-
             helper.setTo(recipients.toArray(new String[0]));
             helper.setSubject("Nextan Service Form for " + clientName);
 
             String emailBody = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
+                "Assigned Engineer(s): %s\n\n" +
                 "Best,\nNextan Service Team.",
-                clientName, clientOrganisation, jobSite
+                clientName, clientOrganisation, jobSite, displayTechnicians
             );
             helper.setText(emailBody);
 
@@ -176,6 +191,9 @@ public class ServiceFormController {
                 cleanSignatureData = cleanSignatureData.split(",")[1];
             }
 
+            // ---------------------------------------------------------------
+            // PDF GENERATION LAYER (With Engineer Display Attached)
+            // ---------------------------------------------------------------
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
                     ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
@@ -188,8 +206,11 @@ public class ServiceFormController {
                     "<div class=\"header\">" +
                     "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
                     "</div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Assigned Technician/Engineer</div><div class=\"val\">" + displayTechnicians + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Customer Name</div><div class=\"val\">" + clientName + "</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Job Site / Location</div><div class=\"val\">" + jobSite + " (" + location + ")</div></div>" +
+                    "<div class=\"field-box\"><div class=\"label\">Service Request / Date</div><div class=\"val\">" + serviceRequest + " on " + serviceDate + " at " + serviceTime + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\">" + serviceDetails + "</div></div>" +
                     "<div class=\"signature-box\"><div class=\"label\">Customer Signature</div>" +
                     "<img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:300px; height:120px;\" />" +
