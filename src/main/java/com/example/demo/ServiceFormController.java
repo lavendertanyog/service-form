@@ -153,15 +153,23 @@ public class ServiceFormController {
 
             // Construct HTTP API Mail Request Object
             Email from = new Email("eunicetanyongnie@gmail.com"); // Verify this domain/email is verified in SendGrid!
+           // 1. Build the dynamic email subject
             String subject = "Nextan Service Form for " + clientName;
             
+            // 2. Build the exact dynamic email body
             String emailBodyText = String.format(
                 "Dear %s from %s,\n\n" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
-                "Assigned Engineer(s): %s\n\n" +
-                "Best,\nNextan Service Team.",
-                clientName, clientOrganisation, jobSite, displayTechnicians
+                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next three working days.\n\n" +
+                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
+                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.\n\n\n" +
+                "Best,\n" +
+                "Nextan Service Team.\n" +
+                "67 Ayer Rajah Crescent #04-21\n" +
+                "+65 6872 6423",
+                clientName, clientOrganisation, jobSite
             );
+            
             Content content = new Content("text/plain", emailBodyText);
 
             // Construct personalization layer for multi-recipient dispatch
