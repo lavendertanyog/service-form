@@ -152,7 +152,7 @@ public class ServiceFormController {
             byte[] pdfBytes = os.toByteArray();
 
             // Construct HTTP API Mail Request Object
-            Email from = new Email("noreply@nextan.com.sg"); // Verify this domain/email is verified in SendGrid!
+            Email from = new Email("eunicetanyongnie@gmail.com"); // Verify this domain/email is verified in SendGrid!
             String subject = "Nextan Service Form for " + clientName;
             
             String emailBodyText = String.format(
