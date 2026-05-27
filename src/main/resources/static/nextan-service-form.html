@@ -59,7 +59,7 @@
       font-size: 1.4rem; 
       letter-spacing: -0.01em;
       color: #000000;
-      padding-left: 100px;
+      padding-left: 100px; 
     }
     .logo span { color: #000000; }
     .header-logo-img {
@@ -214,10 +214,11 @@
 </head>
 <body>
   <div class="container">
-   <div class="header">
+    <div class="header">
       <div class="ref-display" id="formRefDisplay">Generating...</div>
       <div class="logo"><span>Nextan Service Form</span></div>
-      <div style="grid-column: 3;"></div> <img src="https://cdn.techinasia.com/data/images/l87azogSobIoUGTU096RrJZB7gn0vHTdlWthFC0u.jpeg" alt="Nextan Logo" class="header-logo-img">
+      <div style="grid-column: 3;"></div> 
+      <img src="https://cdn.techinasia.com/data/images/l87azogSobIoUGTU096RrJZB7gn0vHTdlWthFC0u.jpeg" alt="Nextan Logo" class="header-logo-img">
     </div>
     <form class="form-panel" id="serviceForm" onsubmit="return false;" enctype="multipart/form-data">
       <div class="form-grid">
@@ -243,8 +244,14 @@
         </div>
         
         <div class="field half">
-          <label>Customer Email address<span class="required">*</span></label>
-          <input type="email" name="clientEmails" id="clientEmails" placeholder="customer@example.com" required />
+          <label>Customer Email address(es)<span class="required">*</span></label>
+          <div id="emailFieldsContainer" style="display: flex; flex-direction: column; gap: 8px;">
+            <div class="email-input-wrapper" style="display: flex; gap: 8px; width: 100%;">
+              <input type="email" class="client-email-input" placeholder="customer@example.com" required style="flex: 1;" />
+              <button type="button" class="remove-email-btn" style="display: none; background: #ffdcd2; color: var(--danger); border: none; border-radius: 12px; padding: 0 16px; font-weight: bold; cursor: pointer;">Remove</button>
+            </div>
+          </div>
+          <button type="button" id="addEmailBtn" style="margin-top: 4px; align-self: flex-start; background: #eef2ff; color: var(--accent); border: 1px dashed var(--accent); padding: 8px 14px; border-radius: 10px; font-weight: 600; cursor: pointer; width: fit-content;">+ Add Another Email</button>
           <div class="helper">This is where the service form will be sent.</div>
         </div>
         
@@ -304,6 +311,43 @@
     </form>
   </div>
   <script>
+
+document.addEventListener('DOMContentLoaded', () => {
+      const container = document.getElementById('emailFieldsContainer');
+      const addBtn = document.getElementById('addEmailBtn');
+
+      function updateRemoveButtons() {
+        const wrappers = container.querySelectorAll('.email-input-wrapper');
+        wrappers.forEach(wrapper => {
+          const removeBtn = wrapper.querySelector('.remove-email-btn');
+          removeBtn.style.display = wrappers.length > 1 ? 'block' : 'none';
+        });
+      }
+
+      addBtn.addEventListener('click', () => {
+        const newWrapper = document.createElement('div');
+        newWrapper.className = 'email-input-wrapper';
+        newWrapper.style.display = 'flex';
+        newWrapper.style.gap = '8px';
+        newWrapper.style.width = '100%';
+
+        newWrapper.innerHTML = `
+          <input type="email" class="client-email-input" placeholder="another-customer@example.com" required style="flex: 1;">
+          <button type="button" class="remove-email-btn" style="background: #ffdcd2; color: var(--danger); border: none; border-radius: 12px; padding: 0 16px; font-weight: bold; cursor: pointer;">Remove</button>
+        `;
+
+        container.appendChild(newWrapper);
+        updateRemoveButtons();
+
+        newWrapper.querySelector('.remove-email-btn').addEventListener('click', () => {
+          newWrapper.remove();
+          updateRemoveButtons();
+        });
+      });
+
+      updateRemoveButtons();
+    });
+
     const BASE_URL = "https://service-form-production.up.railway.app";
     let relationalCompaniesDatabase = [];
 
@@ -422,7 +466,8 @@
       
       if(!selectedCompany) {
         document.getElementById('clientName').value = '';
-        document.getElementById('clientEmails').value = '';
+        const firstEmailField = document.querySelector('.client-email-input');
+        if (firstEmailField) firstEmailField.value = '';
         return;
       }
 
@@ -448,7 +493,23 @@
         });
         
         if (customerMatch) {
-          document.getElementById('clientEmails').value = customerMatch.clientEmails || customerMatch.email || "";
+          // If autocomplete matches a customer profile, isolate down back to 1 core row element
+          const container = document.getElementById('emailFieldsContainer');
+          const secondaryWrappers = container.querySelectorAll('.email-input-wrapper');
+          secondaryWrappers.forEach((wrapper, index) => {
+            if (index > 0) wrapper.remove();
+          });
+
+          const primaryEmailInput = container.querySelector('.client-email-input');
+          if (primaryEmailInput) {
+            primaryEmailInput.value = customerMatch.clientEmails || customerMatch.email || "";
+          }
+          
+          // Re-sync visibility state engine rules
+          const remainingWrappers = container.querySelectorAll('.email-input-wrapper');
+          if (remainingWrappers.length === 1) {
+            remainingWrappers[0].querySelector('.remove-email-btn').style.display = 'none';
+          }
         }
       }
     });
@@ -526,6 +587,16 @@
       // Explicitly append pre-generated reference tracking token payload to backend endpoint pipeline
       formData.append('generatedRef', document.getElementById('formRefDisplay').textContent);
 
+      // --- NEW MULTI-EMAIL PAYLOAD CAPTURE INSERTION POINT ---
+      const emailElements = document.querySelectorAll('.client-email-input');
+      const emailValues = Array.from(emailElements).map(el => el.value.trim()).filter(val => val !== "");
+      const totalClientEmailsString = emailValues.join(',');
+      
+      // Delete single form input capture and append custom multi-string tracking stream
+      formData.delete('clientEmails');
+      formData.append('clientEmails', totalClientEmailsString);
+      // -------------------------------------------------------
+
       const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
       formData.delete('staffEmails');
       formData.append('staffEmails', staffEmailsArray.join(','));
@@ -548,6 +619,15 @@
            selectBoxValue.textContent = "Please select";
            uploadedFilesAccumulator = [];
            renderFilePreviews();
+           
+           // Clean out extra added email field objects on absolute reset loop
+           const container = document.getElementById('emailFieldsContainer');
+           const extraWrappers = container.querySelectorAll('.email-input-wrapper');
+           extraWrappers.forEach((wrapper, index) => {
+             if (index > 0) wrapper.remove();
+           });
+           if(extraWrappers[0]) extraWrappers[0].querySelector('.remove-email-btn').style.display = 'none';
+
            document.dispatchEvent(new Event('DOMContentLoaded'));
         } else {
            alert("Submission Error: " + data.error);
@@ -562,4 +642,3 @@
   </script>
 </body>
 </html>
-

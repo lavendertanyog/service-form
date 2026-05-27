@@ -67,18 +67,28 @@ public class ServiceFormController {
             @RequestParam("serviceDetails") String serviceDetails,
             @RequestParam("clientOrganisation") String clientOrganisation,
             @RequestParam("clientName") String clientName,
-            @RequestParam("clientEmails") String clientEmails,
+            @RequestParam("clientEmails") String clientEmails, // Contains comma-separated values now
             @RequestParam(value = "staffEmails", required = false) String staffEmails,
             @RequestParam("invoiceable") String invoiceable,
             @RequestParam("signature") String signatureBase64,
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
-            // Database Layer Auto-Save
+            List<String> recipientsList = new ArrayList<>();
+            
+            // Loop and clean up multiple customer emails
+            String[] splitCustomerEmails = clientEmails.split(",");
+            for (String custEmail : splitCustomerEmails) {
+                String cleanEmail = custEmail.trim();
+                if (!cleanEmail.isEmpty()) {
+                    recipientsList.add(cleanEmail);
+                }
+            }
+
+            // Database Layer Auto-Save Configuration
             if (companyRepository != null && customerRepository != null) {
                 String cleanCompanyName = clientOrganisation.trim();
                 String cleanCustomerName = clientName.trim();
-                String cleanCustomerEmail = clientEmails.trim();
 
                 List<Company> existingCompanies = companyRepository.findAll();
                 Company targetCompany = null;
@@ -92,26 +102,27 @@ public class ServiceFormController {
                     targetCompany = new Company(cleanCompanyName);
                     targetCompany = companyRepository.save(targetCompany);
                 }
-                boolean customerExists = false;
-                if (targetCompany.getCustomers() != null) {
-                    for (Customer cust : targetCompany.getCustomers()) {
-                        if (cust.getClientEmails().equalsIgnoreCase(cleanCustomerEmail)) {
-                            customerExists = true;
-                            break;
+                
+                // Ensure all provided customer emails are securely mapped to the database repository
+                for (String clientEmailElement : recipientsList) {
+                    boolean customerExists = false;
+                    if (targetCompany.getCustomers() != null) {
+                        for (Customer cust : targetCompany.getCustomers()) {
+                            if (cust.getClientEmails().equalsIgnoreCase(clientEmailElement)) {
+                                customerExists = true;
+                                break;
+                            }
                         }
                     }
-                }
-                if (!customerExists) {
-                    Customer newCustomer = new Customer(cleanCustomerName, cleanCustomerEmail, targetCompany);
-                    customerRepository.save(newCustomer);
+                    if (!customerExists) {
+                        Customer newCustomer = new Customer(cleanCustomerName, clientEmailElement, targetCompany);
+                        customerRepository.save(newCustomer);
+                    }
                 }
             }
 
             // Parse Technicians Names
             List<String> technicianNames = new ArrayList<>();
-            List<String> recipientsList = new ArrayList<>();
-            recipientsList.add(clientEmails.trim());
-
             if (staffEmails != null && !staffEmails.trim().isEmpty()) {
                 for (String email : staffEmails.split(",")) {
                     String cleanEmail = email.trim();
@@ -137,10 +148,9 @@ public class ServiceFormController {
                 }
             }
 
-            // Clean up base64 payload signatures
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
-            // Build the identical UI replica HTML Template for PDF Engine
+            // Render High-Fidelity PDF 
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 20px; background-color: #f5f7fb; color: #273142; font-family: 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid rgba(16, 24, 40, 0.08); overflow: hidden; }" +
@@ -192,7 +202,7 @@ public class ServiceFormController {
                     "      <div class=\"half-last\"><div class=\"field\"><label>Client Representative Name</label><div class=\"mock-input\">" + clientName + "</div></div></div>" +
                     "    </div>" +
                     "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Client Representative Email(s)</label><div class=\"mock-input\">" + clientEmails + "</div></div></div>" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Client Representative Email(s)</label><div class=\"mock-input\">" + String.join(", ", splitCustomerEmails) + "</div></div></div>" +
                     "    </div>" +
                     "    <div class=\"row\">" +
                     "      <div class=\"full\"><div class=\"field\"><label>Is this service billable / invoiceable?</label><div class=\"radio-group\"><span class=\"radio-item\">" + ("true".equalsIgnoreCase(invoiceable) ? "✓ Yes, Invoice Required" : "No, Under Warranty / Contract Maintenance") + "</span></div></div></div>" +
@@ -213,7 +223,7 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // Construct HTTP API Mail Request Object with reference number tagged in subject
+            // SendGrid Integration Setup
             Email from = new Email("eunicetanyongnie@gmail.com"); 
             String subject = "[" + referenceNumber + "] Nextan Service Form for " + clientName;
             
@@ -243,7 +253,6 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
-            // Attach Generated Summary PDF via Base64 (using reference number in filename)
             String safeFileName = "Nextan_Service_Form_" + referenceNumber + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
