@@ -299,8 +299,9 @@ public class ServiceFormController {
             byte[] emlBytes = emlBuilder.toString().getBytes(StandardCharsets.UTF_8);
             Attachments emlAttachment = new Attachments();
             emlAttachment.setContent(Base64.getEncoder().encodeToString(emlBytes));
-            emlAttachment.setType("message/rfc822");
-            emlAttachment.setFilename(subject + ".eml"); // Titled matching the exact email subject
+            emlAttachment.setType("application/octet-stream");
+            
+            emlAttachment.setFilename(subject + ".eml"); 
             emlAttachment.setDisposition("attachment");
             mail.addAttachments(emlAttachment);
 
