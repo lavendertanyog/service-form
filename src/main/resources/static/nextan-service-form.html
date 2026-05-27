@@ -218,33 +218,45 @@
     }
 
     @media (max-width: 768px) { 
-  /* 1. Stack the header elements vertically */
-  .header {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    padding: 16px;
-    text-align: center;
-  }
+      /* 1. Keep elements side-by-side, space them evenly, and prevent wrapping */
+      .header {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 10px 12px !important;
+        gap: 8px !important;
+      }
 
-  /* 2. Remove the forced desktop grid positioning and offsets */
-  .ref-display, .logo, .header-logo-img {
-    grid-column: auto !important;
-    justify-self: center !important;
-  }
+      /* 2. Reset grid properties so flexbox handles alignment */
+      .ref-display, .logo, .header-logo-img {
+        grid-column: auto !important;
+        justify-self: auto !important;
+      }
 
-  /* 3. Strip out the 100px left padding that is breaking mobile alignment */
-  .logo {
-    padding-left: 0 !important;
-    font-size: 1.25rem;
-  }
+      /* 3. Strip out desktop padding and scale down text sizes to fit mobile viewports */
+      .logo {
+        padding-left: 0 !important;
+        font-size: 1.05rem !important; /* Slightly smaller text to prevent layout crowding */
+        text-align: center;
+        flex: 1; /* Allows the title to use available center space safely */
+      }
 
-  /* 4. Keep your existing mobile form overrides */
-  .half { grid-column: span 12; } 
-  .form-panel { padding: 16px 12px; }
-  body { padding: 12px 8px; }
-}
+      .ref-display {
+        font-size: 0.75rem !important;
+        padding: 4px 8px !important;
+      }
+
+      .header-logo-img {
+        height: 28px !important; /* Slightly scales down logo height to keep row slim */
+        width: auto;
+      }
+
+      /* --- Keep your existing mobile form layout rules unchanged --- */
+      .half { grid-column: span 12; } 
+      .form-panel { padding: 16px 12px; }
+      body { padding: 12px 8px; }
+    }
 
   </style>
 </head>
