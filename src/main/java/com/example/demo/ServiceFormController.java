@@ -185,14 +185,13 @@ public class ServiceFormController {
                 zipLinkHtml = "<br/><br/><a href=\"cid:archiveZipFile\" style=\"color: #2563eb; text-decoration: underline;\">" + zipFileName + "</a>";
             }
 
-            // HTML TEMPLATE IS PLACED HERE (After variable declarations)
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 30px; background-color: #ffffff; color: #1e293b; font-family: 'Helvetica Neue', 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 950px; margin: 0 auto; background: #ffffff; }" +
-                    ".header { display: block; width: 100%; height: 60px; margin-bottom: 25px; }" +
-                    ".ref-badge { float: left; font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; margin-top: 10px; }" +
-                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 110px; margin-top: 5px; text-align: center; width: 50%; }" +
-                    ".logo-wrap { float: right; text-align: right; }" +
+                    /* Removed .header height and floats, using a clean table styling approach */
+                    ".pdf-header-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }" +
+                    ".ref-badge { font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; display: inline-block; }" +
+                    ".main-title { font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 0; padding: 0; }" +
                     ".logo-text { font-size: 1.8rem; font-weight: 700; color: #57534e; letter-spacing: -1px; margin: 0; line-height: 1; }" +
                     ".logo-accent { color: #1e40af; }" +
                     ".logo-tagline { font-size: 0.85rem; color: #78716c; font-weight: 400; margin: 2px 0 0 0; font-family: 'Arial', sans-serif; }" +
@@ -215,15 +214,23 @@ public class ServiceFormController {
                     ".no-files-text { font-size: 0.95rem; color: #64748b; font-style: italic; }" +
                     "</style></head><body>" +
                     "<div class=\"container\">" +
-                    "  <div class=\"header\">" +
-                    "    <div class=\"ref-badge\">" + referenceNumber + "</div>" +
-                    "    <div class=\"main-title\">Nextan Service Form</div>" +
-                    "    <div class=\"logo-wrap\">" +
-                    "      <div class=\"logo-text\">next<span class=\"logo-accent\">a</span>n</div>" +
-                    "      <div class=\"logo-tagline\">Innovative Technology Solutions</div>" +
-                    "      </div>" +
-                    "  </div>" +
-                    "  <div class=\"clear\"></div>" +
+                    
+                    // REPLACED OLD HEADER DIV WITH A BORDERLESS STRUCTURE TABLE
+                    "  <table class=\"pdf-header-table\">" +
+                    "    <tr>" +
+                    "      <td style=\"vertical-align: middle; text-align: left; width: 20%;\">" +
+                    "        <div class=\"ref-badge\">" + referenceNumber + "</div>" +
+                    "      </td>" +
+                    "      <td style=\"vertical-align: middle; text-align: center; width: 50%;\">" +
+                    "        <h1 class=\"main-title\">Nextan Service Form</h1>" +
+                    "      </td>" +
+                    "      <td style=\"vertical-align: middle; text-align: right; width: 30%;\">" +
+                    "        <div class=\"logo-text\">next<span class=\"logo-accent\">a</span>n</div>" +
+                    "        <div class=\"logo-tagline\">Innovative Technology Solutions</div>" +
+                    "      </td>" +
+                    "    </tr>" +
+                    "  </table>" +
+                    
                     "  <hr style=\"border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 20px;\" />" +
                     "  <div class=\"form-body\">" +
                     
@@ -267,10 +274,10 @@ public class ServiceFormController {
                     "        <div class=\"field-group\">" +
                     "          <label>File / Image upload</label>" +
                     "          <div class=\"upload-box\">" +
-                                 (hasValidFiles ? 
-                                   "<span class=\"file-link-item\">Attachments_" + formattedRef + ".zip</span>" : 
-                                   "<span class=\"no-files-text\">No files uploaded</span>"
-                                 ) +
+                            (hasValidFiles ? 
+                                "<span class=\"file-link-item\">Attachments_" + formattedRef + ".zip</span>" : 
+                                "<span class=\"no-files-text\">No files uploaded</span>"
+                            ) +
                     "          </div>" +
                     "        </div>" +
                     "      </div>" +
@@ -304,7 +311,7 @@ public class ServiceFormController {
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" +
-                "%s<br/><br/>" +
+                "%s<br/>" +
                 "Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
