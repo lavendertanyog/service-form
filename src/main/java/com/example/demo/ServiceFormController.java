@@ -149,14 +149,14 @@ public class ServiceFormController {
 
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
-            String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
+           String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 30px; background-color: #ffffff; color: #1e293b; font-family: 'Helvetica Neue', 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 950px; margin: 0 auto; background: #ffffff; }" +
                     ".header { display: block; width: 100%; height: 60px; margin-bottom: 25px; }" +
                     ".ref-badge { float: left; font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; margin-top: 10px; }" +
-                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 30px; margin-top: 5px; text-align: center; width: 45%; }" +
+                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 100px; margin-top: 5px; text-align: center; width: 50%; }" +
                     ".logo-wrap { float: right; text-align: right; }" +
-                    ".logo-text { font-size: 2.1rem; font-weight: 700; color: #57534e; letter-spacing: -1px; margin: 0; line-height: 1; }" +
+                    ".logo-text { font-size: 1.8rem; font-weight: 700; color: #57534e; letter-spacing: -1px; margin: 0; line-height: 1; }" +
                     ".logo-accent { color: #1e40af; }" +
                     ".logo-tagline { font-size: 0.85rem; color: #78716c; font-weight: 400; margin: 2px 0 0 0; font-family: 'Arial', sans-serif; }" +
                     ".clear { clear: both; }" +
@@ -173,6 +173,11 @@ public class ServiceFormController {
                     ".radio-container { border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 16px; background: #ffffff; }" +
                     ".radio-option { font-size: 0.95rem; font-weight: 600; color: #2563eb; }" +
                     ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; }" +
+                    
+                    // Added File Upload Box specific styles
+                    ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
+                    ".file-link-item { font-size: 0.95rem; color: #2563eb; font-weight: 600; text-decoration: underline; margin-bottom: 4px; display: block; }" +
+                    ".no-files-text { font-size: 0.95rem; color: #64748b; font-style: italic; }" +
                     "</style></head><body>" +
                     "<div class=\"container\">" +
                     "  <div class=\"header\">" +
@@ -219,6 +224,21 @@ public class ServiceFormController {
                     "    <div class=\"row\">" +
                     "      <div class=\"col-6\"><div class=\"field-group\"><label>Customer Email address(es)<span>*</span></label><div class=\"input-mock\">" + String.join(", ", splitCustomerEmails) + "</div></div></div>" +
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Technician/Engineer Email Address<span>*</span></label><div class=\"input-mock\">" + staffEmails + "</div></div></div>" +
+                    "    </div>" +
+
+                    // NEW ROW: File / Image Upload Display matching your screenshot design layout
+                    "    <div class=\"row\">" +
+                    "      <div class=\"col-12\">" +
+                    "        <div class=\"field-group\">" +
+                    "          <label>File / Image upload</label>" +
+                    "          <div class=\"upload-box\">" +
+                                 (hasValidFiles ? 
+                                   "<span class=\"file-link-item\">Attachments_" + formattedRef + ".zip</span>" : 
+                                   "<span class=\"no-files-text\">No files uploaded</span>"
+                                 ) +
+                    "          </div>" +
+                    "        </div>" +
+                    "      </div>" +
                     "    </div>" +
                     
                     // ROW 7: Invoiceable Service *
