@@ -34,7 +34,7 @@
       display: grid;
       grid-template-columns: 1fr auto 1fr auto;
       align-items: center;
-      padding: 32px 24px; /* Increased top/bottom from 16px to 32px */
+      padding: 32px 24px;
       background: #fff; 
       border-bottom: 1px solid rgba(16, 24, 40, 0.08);
       gap: 15px;
@@ -193,53 +193,26 @@
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
-    .spam-disclaimer {
-      grid-column: span 12;
-      display: flex;
-      gap: 12px;
-      background: #fff9e6;
-      border: 1px solid #ffeaa7;
-      border-radius: 12px;
-      padding: 14px 16px;
-      margin-top: 4px;
-      align-items: flex-start;
-    }
-    .spam-icon {
-      font-size: 1.2rem;
-      line-height: 1.2;
-    }
-    .spam-text {
-      font-size: 0.88rem;
-      color: #7d5a00;
-      line-height: 1.5;
-    }
-    .spam-text strong {
-      color: #5c4200;
-    }
-
     @media (max-width: 768px) { 
-      /* 1. Keep elements side-by-side, space them evenly, and prevent wrapping */
-    .header {
+      .header {
         display: flex !important;
         flex-direction: row !important;
         justify-content: space-between !important;
         align-items: center !important;
-        padding: 24px 12px !important; /* Increased top/bottom from 10px to 24px */
+        padding: 24px 12px !important;
         gap: 8px !important;
       }
 
-      /* 2. Reset grid properties so flexbox handles alignment */
       .ref-display, .logo, .header-logo-img {
         grid-column: auto !important;
         justify-self: auto !important;
       }
 
-      /* 3. Strip out desktop padding and scale down text sizes to fit mobile viewports */
       .logo {
         padding-left: 0 !important;
-        font-size: 1.05rem !important; /* Slightly smaller text to prevent layout crowding */
+        font-size: 1.05rem !important;
         text-align: center;
-        flex: 1; /* Allows the title to use available center space safely */
+        flex: 1;
       }
 
       .ref-display {
@@ -248,11 +221,10 @@
       }
 
       .header-logo-img {
-        height: 28px !important; /* Slightly scales down logo height to keep row slim */
+        height: 28px !important;
         width: auto;
       }
 
-      /* --- Keep your existing mobile form layout rules unchanged --- */
       .half { grid-column: span 12; } 
       .form-panel { padding: 16px 12px; }
       body { padding: 12px 8px; }
@@ -300,7 +272,6 @@
             </div>
           </div>
           <button type="button" id="addEmailBtn" style="margin-top: 4px; align-self: flex-start; background: #eef2ff; color: var(--accent); border: 1px dashed var(--accent); padding: 8px 14px; border-radius: 10px; font-weight: 600; cursor: pointer; width: fit-content;">+ Add Another Email</button>
-          <div class="helper">This is where the service form will be sent.</div>
         </div>
         
         <div class="field half">
@@ -309,7 +280,6 @@
             <div class="select-box" id="selectBoxValue">Please select</div>
             <div class="dropdown-options" id="staffOptionsContainer"></div>
           </div>
-          <div class="helper">This is where the service form will be sent. You can select multiple.</div>
         </div>
         
         <div class="field full upload-card">
@@ -346,13 +316,6 @@
           </div>
         </div>
         <input type="hidden" name="signature" id="signatureValue" />
-
-        <div class="field full spam-disclaimer">
-          <div class="spam-icon">💡</div>
-          <div class="spam-text">
-            <strong>Note on Email Delivery:</strong> The automated service sheet document will be sent out instantly. If you or the customer don't see it in the main inbox within a few minutes, please check the <strong>Junk / Spam folder</strong>.
-          </div>
-        </div>
 
         <div class="field full"><button type="submit" class="submit-button" id="submitBtn">Submit the Support Form</button></div>
       </div>

@@ -208,8 +208,7 @@ public class ServiceFormController {
                     ".textarea-mock { min-height: 110px; line-height: 1.5; }" +
                     ".radio-container { border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 16px; background: #ffffff; }" +
                     ".radio-option { font-size: 0.95rem; font-weight: 600; color: #2563eb; }" +
-                    ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; }" +
-                    ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
+                    ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; page-break-inside: avoid !important; break-inside: avoid !important; }" +                    ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
                     ".file-link-item { font-size: 0.95rem; color: #2563eb; font-weight: 600; text-decoration: underline; margin-bottom: 4px; display: block; }" +
                     ".no-files-text { font-size: 0.95rem; color: #64748b; font-style: italic; }" +
                     "</style></head><body>" +
@@ -289,7 +288,8 @@ public class ServiceFormController {
                     "    </div>" +
                     
                     // ROW 8: Customer Signature *
-                    "    <div class=\"row\" style=\"margin-top: 10px;\">" +
+                // ROW 8: Customer Signature *
+                    "    <div class=\"row\" style=\"margin-top: 10px; page-break-inside: avoid !important; break-inside: avoid !important;\">" +
                     "      <div class=\"col-12\"><div class=\"field-group\"><label>Customer Signature<span>*</span></label><div class=\"signature-frame\"><img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"max-width: 400px; height: 125px; object-fit: contain; display: block;\" /></div></div></div>" +
                     "    </div>" +
                     "    <div class=\"clear\"></div>" +
