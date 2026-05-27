@@ -308,8 +308,8 @@ public class ServiceFormController {
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s. " + 
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
-                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" + // <-- Added an extra <br/> here
-                "%s<br/>" +
+                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" + 
+                "%s<br/><br/>" +
                 "Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
