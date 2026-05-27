@@ -58,7 +58,7 @@ public class ServiceFormController {
 
     @PostMapping("/submit")
     public String handleSubmit(
-            @RequestParam("generatedRef") String referenceNumber, // Directly accepts the live tracking token from the frontend
+            @RequestParam("generatedRef") String referenceNumber, 
             @RequestParam("jobSite") String jobSite,
             @RequestParam("location") String location,
             @RequestParam("serviceDate") String serviceDate,
@@ -137,30 +137,71 @@ public class ServiceFormController {
                 }
             }
 
-            // Generate HTML to PDF Bytes (Includes the generated reference number)
+            // Clean up base64 payload signatures
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
+            
+            // Build the identical UI replica HTML Template for PDF Engine
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
-                    "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
-                    ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
-                    ".title { font-size: 24px; font-weight: bold; color: #0f172a; }" +
-                    ".ref-no { font-size: 14px; color: #6c7284; margin-top: 6px; }" +
-                    ".field-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 15px; border-radius: 6px; }" +
-                    ".label { font-size: 11px; font-weight: bold; color: #6c7284; text-transform: uppercase; margin-bottom: 5px; }" +
-                    ".val { font-size: 14px; }" +
-                    ".signature-box { margin-top: 30px; border: 1px solid #d6d9e6; padding: 15px; width: 350px; }" +
+                    "body { margin: 0; padding: 20px; background-color: #f5f7fb; color: #273142; font-family: 'Arial', sans-serif; }" +
+                    ".container { width: 100%; max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid rgba(16, 24, 40, 0.08); overflow: hidden; }" +
+                    ".header { padding: 20px 24px; background: #ffffff; border-bottom: 1px solid rgba(16, 24, 40, 0.08); display: block; height: 40px; }" +
+                    ".ref-display { float: left; font-size: 0.85rem; color: #6c7284; background: #f0f4f9; padding: 6px 12px; border-radius: 8px; border: 1px solid #d6d9e6; font-family: monospace; font-weight: 600; }" +
+                    ".logo { float: left; margin-left: 40px; font-weight: 700; font-size: 1.3rem; color: #000000; line-height: 32px; }" +
+                    ".header-logo-img { float: right; height: 35px; width: auto; }" +
+                    ".clear { clear: both; }" +
+                    ".form-panel { padding: 24px 20px; }" +
+                    ".row { width: 100%; display: block; clear: both; margin-bottom: 15px; }" +
+                    ".half { width: 48%; float: left; margin-right: 2%; }" +
+                    ".half-last { width: 48%; float: left; }" +
+                    ".full { width: 100%; float: left; }" +
+                    ".field { display: block; margin-bottom: 5px; }" +
+                    ".field label { font-size: 0.90rem; color: #273142; font-weight: 600; display: block; margin-bottom: 8px; text-transform: none; }" +
+                    ".mock-input { width: 100%; border: 1px solid #d6d9e6; border-radius: 12px; padding: 12px 14px; font-size: 0.95rem; color: #273142; background: #ffffff; min-height: 20px; box-sizing: border-box; }" +
+                    ".mock-textarea { min-height: 90px; }" +
+                    ".radio-group { display: block; padding: 12px 16px; border: 1px solid #d6d9e6; border-radius: 14px; background: #ffffff; }" +
+                    ".radio-item { font-size: 0.95rem; font-weight: 700; color: #1f7efd; }" +
+                    ".signature-box { border: 1px solid #d6d9e6; border-radius: 16px; background: #ffffff; text-align: center; padding: 10px; }" +
                     "</style></head><body>" +
-                    "<div class=\"header\">" +
-                    "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
-                    "<div class=\"ref-no\">" + referenceNumber + "</div>" +
-                    "</div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Assigned Technician/Engineer</div><div class=\"val\">" + displayTechnicians + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Customer Name</div><div class=\"val\">" + clientName + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Job Site / Location</div><div class=\"val\">" + jobSite + " (" + location + ")</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Service Request / Date</div><div class=\"val\">" + serviceRequest + " on " + serviceDate + " at " + serviceTime + "</div></div>" +
-                    "<div class=\"field-box\"><div class=\"label\">Service Details</div><div class=\"val\">" + serviceDetails + "</div></div>" +
-                    "<div class=\"signature-box\"><div class=\"label\">Customer Signature</div>" +
-                    "<img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:300px; height:120px;\" />" +
+                    "<div class=\"container\">" +
+                    "  <div class=\"header\">" +
+                    "    <div class=\"ref-display\">" + referenceNumber + "</div>" +
+                    "    <div class=\"logo\">Nextan Service Form</div>" +
+                    "    <img src=\"https://cdn.techinasia.com/data/images/l87azogSobIoUGTU096RrJZB7gn0vHTdlWthFC0u.jpeg\" class=\"header-logo-img\" />" +
+                    "  </div>" +
+                    "  <div class=\"clear\"></div>" +
+                    "  <div class=\"form-panel\">" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Assigned Engineer Email Address(es)</label><div class=\"mock-input\">" + staffEmails + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"half\"><div class=\"field\"><label>Job Site / Building Name</label><div class=\"mock-input\">" + jobSite + "</div></div></div>" +
+                    "      <div class=\"half-last\"><div class=\"field\"><label>Location / Unit Number</label><div class=\"mock-input\">" + location + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"half\"><div class=\"field\"><label>Date of Service</label><div class=\"mock-input\">" + serviceDate + "</div></div></div>" +
+                    "      <div class=\"half-last\"><div class=\"field\"><label>Time of Service</label><div class=\"mock-input\">" + serviceTime + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Service Request / Fault Reported</label><div class=\"mock-input\">" + serviceRequest + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Service Details / Action Taken</label><div class=\"mock-input mock-textarea\">" + serviceDetails.replaceAll("\n", "<br/>") + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"half\"><div class=\"field\"><label>Client Organisation</label><div class=\"mock-input\">" + clientOrganisation + "</div></div></div>" +
+                    "      <div class=\"half-last\"><div class=\"field\"><label>Client Representative Name</label><div class=\"mock-input\">" + clientName + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Client Representative Email(s)</label><div class=\"mock-input\">" + clientEmails + "</div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Is this service billable / invoiceable?</label><div class=\"radio-group\"><span class=\"radio-item\">" + ("true".equalsIgnoreCase(invoiceable) ? "✓ Yes, Invoice Required" : "No, Under Warranty / Contract Maintenance") + "</span></div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"row\" style=\"margin-top:20px;\">" +
+                    "      <div class=\"full\"><div class=\"field\"><label>Customer Signature</label><div class=\"signature-box\"><img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:320px; height:130px; object-fit:contain;\" /></div></div></div>" +
+                    "    </div>" +
+                    "    <div class=\"clear\"></div>" +
+                    "  </div>" +
                     "</div>" +
                     "</body></html>";
 
