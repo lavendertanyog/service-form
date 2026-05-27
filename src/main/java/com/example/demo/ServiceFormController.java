@@ -37,20 +37,6 @@ public class ServiceFormController {
     @Autowired(required = false)
     private CustomerRepository customerRepository;
 
-    // Helper method to generate a 6-character date-stamped alphanumeric reference (e.g., NX-2605A1)
-    private String generateDateStampedReference() {
-        java.time.LocalDate now = java.time.LocalDate.now();
-        String datePrefix = now.format(java.time.format.DateTimeFormatter.ofPattern("yyMM"));
-        
-        String alphaNumericPool = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Omitted confusing letters like I, O, L
-        StringBuilder randomSuffix = new StringBuilder(2);
-        for (int i = 0; i < 2; i++) {
-            int index = (int)(alphaNumericPool.length() * Math.random());
-            randomSuffix.append(alphaNumericPool.charAt(index));
-        }
-        return "NX-" + datePrefix + randomSuffix.toString();
-    }
-
     @GetMapping("/config")
     public String getConfig() {
         String staffOptionsJson = "[\"john.tan@nextan.com.sg\", \"junan.yong@nextan.com.sg\"]";
@@ -72,6 +58,7 @@ public class ServiceFormController {
 
     @PostMapping("/submit")
     public String handleSubmit(
+            @RequestParam("generatedRef") String referenceNumber, // Directly accepts the live tracking token from the frontend
             @RequestParam("jobSite") String jobSite,
             @RequestParam("location") String location,
             @RequestParam("serviceDate") String serviceDate,
@@ -87,9 +74,6 @@ public class ServiceFormController {
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
-            // Generate the unique tracking reference number immediately
-            String referenceNumber = generateDateStampedReference();
-
             // Database Layer Auto-Save
             if (companyRepository != null && customerRepository != null) {
                 String cleanCompanyName = clientOrganisation.trim();
@@ -167,7 +151,7 @@ public class ServiceFormController {
                     "</style></head><body>" +
                     "<div class=\"header\">" +
                     "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
-                    "<div class=\"ref-no\">Reference No: <b>" + referenceNumber + "</b></div>" +
+                    "<div class=\"ref-no\">" + referenceNumber + "</div>" +
                     "</div>" +
                     "<div class=\"field-box\"><div class=\"label\">Assigned Technician/Engineer</div><div class=\"val\">" + displayTechnicians + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
@@ -192,7 +176,6 @@ public class ServiceFormController {
             Email from = new Email("eunicetanyongnie@gmail.com"); 
             String subject = "[" + referenceNumber + "] Nextan Service Form for " + clientName;
             
-            // Replaced all \n formatting with HTML breaks (<br/>) to fix paragraph jumbling
             String emailBodyText = String.format(
                 "Dear %s from %s,<br/><br/>" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.<br/><br/>" +

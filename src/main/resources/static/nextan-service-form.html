@@ -208,7 +208,7 @@
 <body>
   <div class="container">
     <div class="header">
-      <div class="ref-display">REF: [Auto-Generated]</div>
+      <div class="ref-display" id="formRefDisplay">Generating...</div>
       <div class="logo"><span class="brand">nextan</span><span>Service Form</span></div>
       <div style="grid-column: 3;"></div>
     </div>
@@ -318,6 +318,21 @@
     
     let uploadedFilesAccumulator = [];
 
+    // Automatically generates a clean, live alphanumeric reference on page load
+    function generateLiveReferenceNumber() {
+      const now = new Date();
+      const yy = String(now.getFullYear()).slice(-2);
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const datePrefix = yy + mm;
+      
+      const pool = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      let randomSuffix = "";
+      for (let i = 0; i < 2; i++) {
+        randomSuffix += pool.charAt(Math.floor(Math.random() * pool.length));
+      }
+      return "NX-" + datePrefix + randomSuffix;
+    }
+
     fileInputElement.addEventListener('change', (e) => {
       const selectedFiles = Array.from(e.target.files);
       
@@ -393,7 +408,6 @@
       else selectBoxValue.textContent = `${checkedBoxes.length} Engineers Selected`;
     }
 
-    // Dynamic autocomplete suggestion logic for Client Customer list
     document.getElementById('clientOrganisation').addEventListener('input', (e) => {
       const selectedCompany = e.target.value.trim().toLowerCase();
       const customerDatalist = document.getElementById('customerSuggestions');
@@ -409,14 +423,12 @@
       if (match && match.customers) {
         match.customers.forEach(cust => {
           const opt = document.createElement('option');
-          // Maps to clientName, falls back safely to generic key structural properties
           opt.value = cust.clientName || cust.name || "";
           customerDatalist.appendChild(opt);
         });
       }
     });
 
-    // Dynamic Autofill structure logic for email lookup parameters
     document.getElementById('clientName').addEventListener('input', (e) => {
       const targetCompany = document.getElementById('clientOrganisation').value.trim().toLowerCase();
       const targetCustomer = e.target.value.trim().toLowerCase();
@@ -435,6 +447,10 @@
     });
 
     document.addEventListener("DOMContentLoaded", () => {
+      // Instantly generate reference tracking token and inject into left-side bar template
+      const liveRefNumber = generateLiveReferenceNumber();
+      document.getElementById('formRefDisplay').textContent = liveRefNumber;
+
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
       const month = String(now.getMonth() + 1).padStart(2, '0');
@@ -474,7 +490,6 @@
       .catch(err => console.error("Config tracking error: ", err));
     });
 
-    // Helper function to capitalize the first letter of each word
     function titleCase(str) {
       if (!str) return "";
       return str
@@ -493,7 +508,6 @@
       submitBtn.textContent = "Sending Document Pack...";
       signatureValue.value = canvas.toDataURL('image/png');
 
-      // Automatically format Company and Customer fields to Title Case before packaging
       const companyInput = document.getElementById('clientOrganisation');
       const customerInput = document.getElementById('clientName');
       
@@ -501,6 +515,10 @@
       customerInput.value = titleCase(customerInput.value.trim());
 
       const formData = new FormData(form);
+      
+      // Explicitly append pre-generated reference tracking token payload to backend endpoint pipeline
+      formData.append('generatedRef', document.getElementById('formRefDisplay').textContent);
+
       const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
       formData.delete('staffEmails');
       formData.append('staffEmails', staffEmailsArray.join(','));
