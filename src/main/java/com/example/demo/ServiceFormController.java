@@ -149,12 +149,49 @@ public class ServiceFormController {
 
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
-           String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
+            // 1. Clean the reference number to extract digits only, then pad to exactly 10 digits sequentially
+            String digitsOnly = referenceNumber != null ? referenceNumber.replaceAll("[^0-9]", "") : "";
+            String formattedRef = String.format("%10s", digitsOnly).replace(' ', '0');
+
+            String senderEmailString = "eunicetanyongnie@gmail.com";
+            Email from = new Email(senderEmailString); 
+            
+            // 2. Updated Subject Line Syntax Rule Configuration
+            String subject = "Nextan Service Form for " + clientName + " REF-" + formattedRef;
+            
+            // Prepare the dynamic attachment link snippet if files exist
+            String zipLinkHtml = "";
+            boolean hasValidFiles = false;
+            ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream();
+            
+            if (attachments != null && attachments.length > 0) {
+                try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
+                    for (MultipartFile file : attachments) {
+                        if (file != null && !file.isEmpty()) {
+                            hasValidFiles = true;
+                            ZipEntry entry = new ZipEntry(file.getOriginalFilename());
+                            zos.putNextEntry(entry);
+                            zos.write(file.getBytes());
+                            zos.closeEntry();
+                        }
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (hasValidFiles) {
+                String zipFileName = "Attachments_" + formattedRef + ".zip";
+                zipLinkHtml = "<br/><br/><a href=\"cid:archiveZipFile\" style=\"color: #2563eb; text-decoration: underline;\">" + zipFileName + "</a>";
+            }
+
+            // HTML TEMPLATE IS PLACED HERE (After variable declarations)
+            String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 30px; background-color: #ffffff; color: #1e293b; font-family: 'Helvetica Neue', 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 950px; margin: 0 auto; background: #ffffff; }" +
                     ".header { display: block; width: 100%; height: 60px; margin-bottom: 25px; }" +
                     ".ref-badge { float: left; font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; margin-top: 10px; }" +
-                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 100px; margin-top: 5px; text-align: center; width: 50%; }" +
+                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 110px; margin-top: 5px; text-align: center; width: 50%; }" +
                     ".logo-wrap { float: right; text-align: right; }" +
                     ".logo-text { font-size: 1.8rem; font-weight: 700; color: #57534e; letter-spacing: -1px; margin: 0; line-height: 1; }" +
                     ".logo-accent { color: #1e40af; }" +
@@ -173,8 +210,6 @@ public class ServiceFormController {
                     ".radio-container { border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 16px; background: #ffffff; }" +
                     ".radio-option { font-size: 0.95rem; font-weight: 600; color: #2563eb; }" +
                     ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; }" +
-                    
-                    // Added File Upload Box specific styles
                     ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
                     ".file-link-item { font-size: 0.95rem; color: #2563eb; font-weight: 600; text-decoration: underline; margin-bottom: 4px; display: block; }" +
                     ".no-files-text { font-size: 0.95rem; color: #64748b; font-style: italic; }" +
@@ -226,7 +261,7 @@ public class ServiceFormController {
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Technician/Engineer Email Address<span>*</span></label><div class=\"input-mock\">" + staffEmails + "</div></div></div>" +
                     "    </div>" +
 
-                    // NEW ROW: File / Image Upload Display matching your screenshot design layout
+                    // File / Image Upload Section
                     "    <div class=\"row\">" +
                     "      <div class=\"col-12\">" +
                     "        <div class=\"field-group\">" +
@@ -263,50 +298,13 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // 1. Clean the reference number to extract digits only, then pad to exactly 10 digits sequentially
-            String digitsOnly = referenceNumber != null ? referenceNumber.replaceAll("[^0-9]", "") : "";
-            String formattedRef = String.format("%10s", digitsOnly).replace(' ', '0');
-
-            String senderEmailString = "eunicetanyongnie@gmail.com";
-            Email from = new Email(senderEmailString); 
-            
-            // 2. Updated Subject Line Syntax Rule Configuration
-            String subject = "Nextan Service Form for " + clientName + " REF-" + formattedRef;
-            
-            // Prepare the dynamic attachment link snippet if files exist
-            String zipLinkHtml = "";
-            boolean hasValidFiles = false;
-            ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream(); // Declared ONCE globally here
-            
-            if (attachments != null && attachments.length > 0) {
-                try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
-                    for (MultipartFile file : attachments) {
-                        if (file != null && !file.isEmpty()) {
-                            hasValidFiles = true;
-                            ZipEntry entry = new ZipEntry(file.getOriginalFilename());
-                            zos.putNextEntry(entry);
-                            zos.write(file.getBytes());
-                            zos.closeEntry();
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-            if (hasValidFiles) {
-                // MATCH THE REFERENCE NUMBER: Names the visual text link dynamically using the reference number
-                String zipFileName = "Attachments_" + formattedRef + ".zip";
-                zipLinkHtml = "<br/><br/><a href=\"cid:archiveZipFile\" style=\"color: #2563eb; text-decoration: underline;\">" + zipFileName + "</a>";
-            }
-
             String emailBodyHtml = String.format(
                 "Dear %s from %s,<br/><br/>" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s." +
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" +
-                "%s<br/><br/>" + // Injects the dynamic reference link text smoothly inside the layout block
+                "%s<br/><br/>" +
                 "Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
@@ -327,7 +325,7 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
-            // Attachment 1: Core PDF Attachment Configuration using the clean 10-digit code
+            // Attachment 1: Core PDF Configuration
             String safeFileName = "Nextan_Service_Form_" + formattedRef + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
@@ -336,7 +334,7 @@ public class ServiceFormController {
             pdfAttachment.setDisposition("attachment");
             mail.addAttachments(pdfAttachment);
 
-            // Attachment 2: Reuses compiled zipByteStream pipeline and sets disposition as INLINE to link with HTML cid
+            // Attachment 2: Inline Linked ZIP Package
             if (hasValidFiles) {
                 Attachments zipAttachment = new Attachments();
                 zipAttachment.setContent(Base64.getEncoder().encodeToString(zipByteStream.toByteArray()));
@@ -347,7 +345,7 @@ public class ServiceFormController {
                 mail.addAttachments(zipAttachment);
             }
 
-            // Attachment 3: EML File Construction matching the updated subject layout perfectly
+            // Attachment 3: EML Backup Layout
             StringBuilder emlBuilder = new StringBuilder();
             emlBuilder.append("From: ").append(senderEmailString).append("\r\n");
             emlBuilder.append("To: ").append(String.join(", ", recipientsList)).append("\r\n");
@@ -364,7 +362,6 @@ public class ServiceFormController {
             emlAttachment.setDisposition("attachment");
             mail.addAttachments(emlAttachment);
 
-            // Execute Mail Transmission Pipeline via SendGrid
             SendGrid sg = new SendGrid(sendGridApiKey);
             Request request = new Request();
             request.setMethod(Method.POST);
