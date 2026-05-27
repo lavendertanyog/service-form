@@ -191,6 +191,9 @@
     .signature-actions button, .submit-button { cursor: pointer; border: none; border-radius: 999px; padding: 12px 22px; font-weight: 700; font-size: 0.95rem; }
     .signature-actions button { background: #eef2ff; color: var(--text); }
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
+    
+    /* Dedicated subtitle note styling underneath labels */
+    .label-note { color: var(--muted); font-size: 0.82rem; font-weight: 400; margin-top: -4px; margin-bottom: 2px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
     @media (max-width: 768px) { 
@@ -265,6 +268,7 @@
         
         <div class="field half">
           <label>Customer Email address(es)<span class="required">*</span></label>
+          <div class="label-note">(to which this service form will be sent)</div>
           <div id="emailFieldsContainer" style="display: flex; flex-direction: column; gap: 8px;">
             <div class="email-input-wrapper" style="display: flex; gap: 8px; width: 100%;">
               <input type="email" class="client-email-input" placeholder="customer@example.com" required style="flex: 1;" />
@@ -272,16 +276,15 @@
             </div>
           </div>
           <button type="button" id="addEmailBtn" style="margin-top: 4px; align-self: flex-start; background: #eef2ff; color: var(--accent); border: 1px dashed var(--accent); padding: 8px 14px; border-radius: 10px; font-weight: 600; cursor: pointer; width: fit-content;">+ Add Another Email</button>
-          <div class="helper">This is where the service form will be sent.</div>
         </div>
         
         <div class="field half">
           <label>Technician/Engineer Email Address<span class="required">*</span></label>
+          <div class="label-note">(to which this service form will be sent)</div>
           <div class="multiselect-container" id="staffMultiselect">
             <div class="select-box" id="selectBoxValue">Please select</div>
             <div class="dropdown-options" id="staffOptionsContainer"></div>
           </div>
-          <div class="helper">This is where the service form will be sent. You can select multiple.</div>
         </div>
         
         <div class="field full upload-card">
