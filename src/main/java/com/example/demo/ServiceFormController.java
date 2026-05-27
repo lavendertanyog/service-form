@@ -7,10 +7,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
@@ -67,7 +70,7 @@ public class ServiceFormController {
             @RequestParam("serviceDetails") String serviceDetails,
             @RequestParam("clientOrganisation") String clientOrganisation,
             @RequestParam("clientName") String clientName,
-            @RequestParam("clientEmails") String clientEmails, // Contains comma-separated values now
+            @RequestParam("clientEmails") String clientEmails, 
             @RequestParam(value = "staffEmails", required = false) String staffEmails,
             @RequestParam("invoiceable") String invoiceable,
             @RequestParam("signature") String signatureBase64,
@@ -76,7 +79,6 @@ public class ServiceFormController {
         try {
             List<String> recipientsList = new ArrayList<>();
             
-            // Loop and clean up multiple customer emails
             String[] splitCustomerEmails = clientEmails.split(",");
             for (String custEmail : splitCustomerEmails) {
                 String cleanEmail = custEmail.trim();
@@ -85,7 +87,6 @@ public class ServiceFormController {
                 }
             }
 
-            // Database Layer Auto-Save Configuration
             if (companyRepository != null && customerRepository != null) {
                 String cleanCompanyName = clientOrganisation.trim();
                 String cleanCustomerName = clientName.trim();
@@ -103,7 +104,6 @@ public class ServiceFormController {
                     targetCompany = companyRepository.save(targetCompany);
                 }
                 
-                // Ensure all provided customer emails are securely mapped to the database repository
                 for (String clientEmailElement : recipientsList) {
                     boolean customerExists = false;
                     if (targetCompany.getCustomers() != null) {
@@ -121,7 +121,6 @@ public class ServiceFormController {
                 }
             }
 
-            // Parse Technicians Names
             List<String> technicianNames = new ArrayList<>();
             if (staffEmails != null && !staffEmails.trim().isEmpty()) {
                 for (String email : staffEmails.split(",")) {
@@ -150,7 +149,6 @@ public class ServiceFormController {
 
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
-            // Render High-Fidelity PDF 
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 20px; background-color: #f5f7fb; color: #273142; font-family: 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid rgba(16, 24, 40, 0.08); overflow: hidden; }" +
@@ -223,11 +221,11 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // SendGrid Integration Setup
-            Email from = new Email("eunicetanyongnie@gmail.com"); 
+            String senderEmailString = "eunicetanyongnie@gmail.com";
+            Email from = new Email(senderEmailString); 
             String subject = "[" + referenceNumber + "] Nextan Service Form for " + clientName;
             
-            String emailBodyText = String.format(
+            String emailBodyHtml = String.format(
                 "Dear %s from %s,<br/><br/>" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.<br/><br/>" +
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
@@ -240,7 +238,7 @@ public class ServiceFormController {
                 clientName, clientOrganisation, jobSite
             );
             
-            Content content = new Content("text/html", emailBodyText);
+            Content content = new Content("text/html", emailBodyHtml);
 
             Personalization personalization = new Personalization();
             for (String recipientEmail : recipientsList) {
@@ -253,6 +251,7 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
+            // 1. Core PDF Attachment Configuration
             String safeFileName = "Nextan_Service_Form_" + referenceNumber + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
@@ -261,19 +260,51 @@ public class ServiceFormController {
             pdfAttachment.setDisposition("attachment");
             mail.addAttachments(pdfAttachment);
 
-            if (attachments != null) {
-                for (MultipartFile file : attachments) {
-                    if (!file.isEmpty()) {
-                        Attachments customFile = new Attachments();
-                        customFile.setContent(Base64.getEncoder().encodeToString(file.getBytes()));
-                        customFile.setType(file.getContentType());
-                        customFile.setFilename(file.getOriginalFilename());
-                        customFile.setDisposition("attachment");
-                        mail.addAttachments(customFile);
+            // 2. Attachments Packaging Rule: Combine all uploaded customer images/files into a single ZIP file
+            if (attachments != null && attachments.length > 0) {
+                boolean hasValidFiles = false;
+                ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream();
+                
+                try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
+                    for (MultipartFile file : attachments) {
+                        if (file != null && !file.isEmpty()) {
+                            hasValidFiles = true;
+                            ZipEntry entry = new ZipEntry(file.getOriginalFilename());
+                            zos.putNextEntry(entry);
+                            zos.write(file.getBytes());
+                            zos.closeEntry();
+                        }
                     }
+                }
+                
+                if (hasValidFiles) {
+                    Attachments zipAttachment = new Attachments();
+                    zipAttachment.setContent(Base64.getEncoder().encodeToString(zipByteStream.toByteArray()));
+                    zipAttachment.setType("application/zip");
+                    zipAttachment.setFilename("Attachments_" + referenceNumber + ".zip");
+                    zipAttachment.setDisposition("attachment");
+                    mail.addAttachments(zipAttachment);
                 }
             }
 
+            // 3. EML File Construction: Compiles raw MIME format copy for backup storage
+            StringBuilder emlBuilder = new StringBuilder();
+            emlBuilder.append("From: ").append(senderEmailString).append("\r\n");
+            emlBuilder.append("To: ").append(String.join(", ", recipientsList)).append("\r\n");
+            emlBuilder.append("Subject: ").append(subject).append("\r\n");
+            emlBuilder.append("MIME-Version: 1.0\r\n");
+            emlBuilder.append("Content-Type: text/html; charset=UTF-8\r\n\r\n");
+            emlBuilder.append(emailBodyHtml);
+            
+            byte[] emlBytes = emlBuilder.toString().getBytes(StandardCharsets.UTF_8);
+            Attachments emlAttachment = new Attachments();
+            emlAttachment.setContent(Base64.getEncoder().encodeToString(emlBytes));
+            emlAttachment.setType("message/rfc822");
+            emlAttachment.setFilename(subject + ".eml"); // Titled matching the exact email subject
+            emlAttachment.setDisposition("attachment");
+            mail.addAttachments(emlAttachment);
+
+            // Execute Mail Transmission Pipeline
             SendGrid sg = new SendGrid(sendGridApiKey);
             Request request = new Request();
             request.setMethod(Method.POST);
