@@ -188,7 +188,6 @@ public class ServiceFormController {
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { margin: 0; padding: 30px; background-color: #ffffff; color: #1e293b; font-family: 'Helvetica Neue', 'Arial', sans-serif; }" +
                     ".container { width: 100%; max-width: 950px; margin: 0 auto; background: #ffffff; }" +
-                    /* Removed .header height and floats, using a clean table styling approach */
                     ".pdf-header-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }" +
                     ".ref-badge { font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; display: inline-block; }" +
                     ".main-title { font-size: 1.6rem; font-weight: 700; color: #0f172a; margin: 0; padding: 0; }" +
@@ -214,7 +213,6 @@ public class ServiceFormController {
                     "</style></head><body>" +
                     "<div class=\"container\">" +
                     
-                    // REPLACED OLD HEADER DIV WITH A BORDERLESS STRUCTURE TABLE
                     "  <table class=\"pdf-header-table\">" +
                     "    <tr>" +
                     "      <td style=\"vertical-align: middle; text-align: left; width: 20%;\">" +
@@ -307,10 +305,10 @@ public class ServiceFormController {
 
             String emailBodyHtml = String.format(
                 "Dear %s from %s,<br/><br/>" +
-                "Please find attached a copy of the Service Sheet for the Service provided today at %s." +
+                "Please find attached a copy of the Service Sheet for the Service provided today at %s. " + 
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
-                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" +
+                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" + // <-- Added an extra <br/> here
                 "%s<br/>" +
                 "Best,<br/>" +
                 "Nextan Service Team.<br/>" +
