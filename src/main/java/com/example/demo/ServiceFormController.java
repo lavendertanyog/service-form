@@ -150,63 +150,85 @@ public class ServiceFormController {
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
-                    "body { margin: 0; padding: 20px; background-color: #f5f7fb; color: #273142; font-family: 'Arial', sans-serif; }" +
-                    ".container { width: 100%; max-width: 900px; margin: 0 auto; background: #ffffff; border-radius: 20px; border: 1px solid rgba(16, 24, 40, 0.08); overflow: hidden; }" +
-                    ".header { padding: 20px 24px; background: #ffffff; border-bottom: 1px solid rgba(16, 24, 40, 0.08); display: block; height: 40px; }" +
-                    ".ref-display { float: left; font-size: 0.85rem; color: #6c7284; background: #f0f4f9; padding: 6px 12px; border-radius: 8px; border: 1px solid #d6d9e6; font-family: monospace; font-weight: 600; }" +
-                    ".logo { float: left; margin-left: 40px; font-weight: 700; font-size: 1.3rem; color: #000000; line-height: 32px; }" +
-                    ".header-logo-img { float: right; height: 35px; width: auto; }" +
+                    "body { margin: 0; padding: 30px; background-color: #ffffff; color: #1e293b; font-family: 'Helvetica Neue', 'Arial', sans-serif; }" +
+                    ".container { width: 100%; max-width: 950px; margin: 0 auto; background: #ffffff; }" +
+                    ".header { display: block; width: 100%; height: 60px; margin-bottom: 25px; }" +
+                    ".ref-badge { float: left; font-size: 0.85rem; color: #64748b; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: 700; margin-top: 10px; }" +
+                    ".main-title { float: left; font-size: 1.6rem; font-weight: 700; color: #0f172a; margin-left: 30px; margin-top: 5px; text-align: center; width: 45%; }" +
+                    ".logo-wrap { float: right; text-align: right; }" +
+                    ".logo-text { font-size: 2.1rem; font-weight: 700; color: #57534e; letter-spacing: -1px; margin: 0; line-height: 1; }" +
+                    ".logo-accent { color: #1e40af; }" +
+                    ".logo-tagline { font-size: 0.85rem; color: #78716c; font-weight: 400; margin: 2px 0 0 0; font-family: 'Arial', sans-serif; }" +
                     ".clear { clear: both; }" +
-                    ".form-panel { padding: 24px 20px; }" +
-                    ".row { width: 100%; display: block; clear: both; margin-bottom: 15px; }" +
-                    ".half { width: 48%; float: left; margin-right: 2%; }" +
-                    ".half-last { width: 48%; float: left; }" +
-                    ".full { width: 100%; float: left; }" +
-                    ".field { display: block; margin-bottom: 5px; }" +
-                    ".field label { font-size: 0.90rem; color: #273142; font-weight: 600; display: block; margin-bottom: 8px; text-transform: none; }" +
-                    ".mock-input { width: 100%; border: 1px solid #d6d9e6; border-radius: 12px; padding: 12px 14px; font-size: 0.95rem; color: #273142; background: #ffffff; min-height: 20px; box-sizing: border-box; }" +
-                    ".mock-textarea { min-height: 90px; }" +
-                    ".radio-group { display: block; padding: 12px 16px; border: 1px solid #d6d9e6; border-radius: 14px; background: #ffffff; }" +
-                    ".radio-item { font-size: 0.95rem; font-weight: 700; color: #1f7efd; }" +
-                    ".signature-box { border: 1px solid #d6d9e6; border-radius: 16px; background: #ffffff; text-align: center; padding: 10px; }" +
+                    ".form-body { padding: 10px 5px; }" +
+                    ".row { width: 100%; display: block; clear: both; margin-bottom: 18px; }" +
+                    ".col-6 { width: 48.5%; float: left; }" +
+                    ".col-6-last { width: 48.5%; float: right; }" +
+                    ".col-12 { width: 100%; float: left; }" +
+                    ".field-group { display: block; }" +
+                    ".field-group label { font-size: 0.95rem; color: #0f172a; font-weight: 600; display: block; margin-bottom: 6px; }" +
+                    ".field-group label span { color: #dc2626; font-weight: bold; margin-left: 2px; }" +
+                    ".input-mock { width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 14px; font-size: 0.95rem; color: #334155; background: #ffffff; min-height: 22px; box-sizing: border-box; }" +
+                    ".textarea-mock { min-height: 110px; line-height: 1.5; }" +
+                    ".radio-container { border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 16px; background: #ffffff; }" +
+                    ".radio-option { font-size: 0.95rem; font-weight: 600; color: #2563eb; }" +
+                    ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; }" +
                     "</style></head><body>" +
                     "<div class=\"container\">" +
                     "  <div class=\"header\">" +
-                    "    <div class=\"ref-display\">" + referenceNumber + "</div>" +
-                    "    <div class=\"logo\">Nextan Service Form</div>" +
-                    "    <img src=\"https://cdn.techinasia.com/data/images/l87azogSobIoUGTU096RrJZB7gn0vHTdlWthFC0u.jpeg\" class=\"header-logo-img\" />" +
+                    "    <div class=\"ref-badge\">" + referenceNumber + "</div>" +
+                    "    <div class=\"main-title\">Nextan Service Form</div>" +
+                    "    <div class=\"logo-wrap\">" +
+                    "      <div class=\"logo-text\">next<span class=\"logo-accent\">a</span>n</div>" +
+                    "      <div class=\"logo-tagline\">Innovative Technology Solutions</div>" +
+                    "    </div>" +
                     "  </div>" +
                     "  <div class=\"clear\"></div>" +
-                    "  <div class=\"form-panel\">" +
+                    "  <hr style=\"border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 20px;\" />" +
+                    "  <div class=\"form-body\">" +
+                    
+                    // ROW 1: Job site * & Location *
                     "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Assigned Engineer Email Address(es)</label><div class=\"mock-input\">" + staffEmails + "</div></div></div>" +
+                    "      <div class=\"col-6\"><div class=\"field-group\"><label>Job site<span>*</span></label><div class=\"input-mock\">" + jobSite + "</div></div></div>" +
+                    "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Location<span>*</span></label><div class=\"input-mock\">" + location + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 2: Date of Service * & Time of Service *
                     "    <div class=\"row\">" +
-                    "      <div class=\"half\"><div class=\"field\"><label>Job Site / Building Name</label><div class=\"mock-input\">" + jobSite + "</div></div></div>" +
-                    "      <div class=\"half-last\"><div class=\"field\"><label>Location / Unit Number</label><div class=\"mock-input\">" + location + "</div></div></div>" +
+                    "      <div class=\"col-6\"><div class=\"field-group\"><label>Date of Service<span>*</span></label><div class=\"input-mock\">" + serviceDate + "</div></div></div>" +
+                    "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Time of Service<span>*</span></label><div class=\"input-mock\">" + serviceTime + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 3: Service Request *
                     "    <div class=\"row\">" +
-                    "      <div class=\"half\"><div class=\"field\"><label>Date of Service</label><div class=\"mock-input\">" + serviceDate + "</div></div></div>" +
-                    "      <div class=\"half-last\"><div class=\"field\"><label>Time of Service</label><div class=\"mock-input\">" + serviceTime + "</div></div></div>" +
+                    "      <div class=\"col-12\"><div class=\"field-group\"><label>Service Request<span>*</span></label><div class=\"input-mock\">" + serviceRequest + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 4: Service Details *
                     "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Service Request / Fault Reported</label><div class=\"mock-input\">" + serviceRequest + "</div></div></div>" +
+                    "      <div class=\"col-12\"><div class=\"field-group\"><label>Service Details<span>*</span></label><div class=\"input-mock textarea-mock\">" + serviceDetails.replaceAll("\n", "<br/>") + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 5: Company Name * & Customer Name *
                     "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Service Details / Action Taken</label><div class=\"mock-input mock-textarea\">" + serviceDetails.replaceAll("\n", "<br/>") + "</div></div></div>" +
+                    "      <div class=\"col-6\"><div class=\"field-group\"><label>Company Name<span>*</span></label><div class=\"input-mock\">" + clientOrganisation + "</div></div></div>" +
+                    "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Customer Name<span>*</span></label><div class=\"input-mock\">" + clientName + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 6: Customer Email address(es) * & Technician/Engineer Email Address *
                     "    <div class=\"row\">" +
-                    "      <div class=\"half\"><div class=\"field\"><label>Client Organisation</label><div class=\"mock-input\">" + clientOrganisation + "</div></div></div>" +
-                    "      <div class=\"half-last\"><div class=\"field\"><label>Client Representative Name</label><div class=\"mock-input\">" + clientName + "</div></div></div>" +
+                    "      <div class=\"col-6\"><div class=\"field-group\"><label>Customer Email address(es)<span>*</span></label><div class=\"input-mock\">" + String.join(", ", splitCustomerEmails) + "</div></div></div>" +
+                    "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Technician/Engineer Email Address<span>*</span></label><div class=\"input-mock\">" + staffEmails + "</div></div></div>" +
                     "    </div>" +
+                    
+                    // ROW 7: Invoiceable Service *
                     "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Client Representative Email(s)</label><div class=\"mock-input\">" + String.join(", ", splitCustomerEmails) + "</div></div></div>" +
+                    "      <div class=\"col-12\"><div class=\"field-group\"><label>Invoiceable Service<span>*</span></label><div class=\"radio-container\"><span class=\"radio-option\">" + ("true".equalsIgnoreCase(invoiceable) ? "● Yes" : "● No") + "</span></div></div></div>" +
                     "    </div>" +
-                    "    <div class=\"row\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Is this service billable / invoiceable?</label><div class=\"radio-group\"><span class=\"radio-item\">" + ("true".equalsIgnoreCase(invoiceable) ? "✓ Yes, Invoice Required" : "No, Under Warranty / Contract Maintenance") + "</span></div></div></div>" +
-                    "    </div>" +
-                    "    <div class=\"row\" style=\"margin-top:20px;\">" +
-                    "      <div class=\"full\"><div class=\"field\"><label>Customer Signature</label><div class=\"signature-box\"><img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"width:320px; height:130px; object-fit:contain;\" /></div></div></div>" +
+                    
+                    // ROW 8: Customer Signature *
+                    "    <div class=\"row\" style=\"margin-top: 10px;\">" +
+                    "      <div class=\"col-12\"><div class=\"field-group\"><label>Customer Signature<span>*</span></label><div class=\"signature-frame\"><img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"max-width: 400px; height: 125px; object-fit: contain; display: block;\" /></div></div></div>" +
                     "    </div>" +
                     "    <div class=\"clear\"></div>" +
                     "  </div>" +
@@ -325,7 +347,7 @@ public class ServiceFormController {
             return "{\"success\": false, \"error\": \"" + e.getMessage() + "\"}";
         }
     }
-    
+
     @PostMapping("/admin/add-company")
     public String addCompany(@RequestHeader(value = "X-Admin-Token", required = false) String providedToken, @RequestParam("companyName") String companyName) {
         if (providedToken == null || !providedToken.equals(adminSecretToken)) return "{\"success\": false, \"error\": \"Unauthorized\"}";
