@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nextan Service Form</title>
   <style>
     :root {
@@ -32,13 +32,15 @@
     }
     .header {
       display: grid;
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: 1fr auto 1fr auto; /* 4 columns: Ref, Title, Spacer, Logo */
       align-items: center;
-      padding: 20px 24px; 
+      padding: 16px 24px; 
       background: #fff; 
       border-bottom: 1px solid rgba(16, 24, 40, 0.08);
+      gap: 15px;
     }
     .ref-display {
+      grid-column: 1;
       justify-self: start;
       font-size: 0.85rem;
       color: var(--muted);
@@ -53,13 +55,19 @@
       grid-column: 2;
       display: flex; 
       align-items: center; 
-      gap: 12px; 
       font-weight: 700; 
-      font-size: 1.1rem; 
-      letter-spacing: 0.02em; 
+      font-size: 1.4rem; 
+      letter-spacing: -0.01em;
+      color: #000000;
     }
-    .logo span { color: #0f172a; }
-    .logo .brand { color: #1f7efd; font-size: 1.4rem; }
+    .logo span { color: #000000; }
+    .header-logo-img {
+      grid-column: 4;
+      justify-self: end;
+      height: 38px;
+      width: auto;
+      object-fit: contain;
+    }
     .form-panel { padding: 24px 20px; }
     .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); width: 100%; }
     .field { display: grid; gap: 8px; position: relative; width: 100%; }
@@ -130,7 +138,6 @@
       background: #f4f7ff; border-color: var(--accent);
     }
     
-    /* Dynamic File Badges Container Layout */
     .preview-list {
       grid-column: span 12; display: flex; flex-wrap: wrap; gap: 10px; margin-top: -6px; width: 100%;
     }
@@ -173,7 +180,6 @@
     .submit-button { display: inline-flex; align-items: center; justify-content: center; background: var(--accent); color: #fff; width: 100%; padding: 16px 0; border-radius: 18px; margin-top: 12px; }
     .helper { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
-    /* SPAM/JUNK MAIL REMINDER STYLING */
     .spam-disclaimer {
       grid-column: span 12;
       display: flex;
@@ -207,10 +213,10 @@
 </head>
 <body>
   <div class="container">
-    <div class="header">
+   <div class="header">
       <div class="ref-display" id="formRefDisplay">Generating...</div>
-      <div class="logo"><span class="brand">nextan</span><span>Service Form</span></div>
-      <div style="grid-column: 3;"></div>
+      <div class="logo"><span>Nextan Service Form</span></div>
+      <div style="grid-column: 3;"></div> <img src="https://cdn.techinasia.com/data/images/l87azogSobIoUGTU096RrJZB7gn0vHTdlWthFC0u.jpeg" alt="Nextan Logo" class="header-logo-img">
     </div>
     <form class="form-panel" id="serviceForm" onsubmit="return false;" enctype="multipart/form-data">
       <div class="form-grid">
