@@ -181,7 +181,7 @@ public class ServiceFormController {
                     "    <div class=\"logo-wrap\">" +
                     "      <div class=\"logo-text\">next<span class=\"logo-accent\">a</span>n</div>" +
                     "      <div class=\"logo-tagline\">Innovative Technology Solutions</div>" +
-                    "    </div>" +
+                    "      </div>" +
                     "  </div>" +
                     "  <div class=\"clear\"></div>" +
                     "  <hr style=\"border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 20px;\" />" +
@@ -243,20 +243,20 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // Clean the reference number to extract digits only, then pad to exactly 10 digits sequentially
+            // 1. Clean the reference number to extract digits only, then pad to exactly 10 digits sequentially
             String digitsOnly = referenceNumber != null ? referenceNumber.replaceAll("[^0-9]", "") : "";
             String formattedRef = String.format("%10s", digitsOnly).replace(' ', '0');
 
             String senderEmailString = "eunicetanyongnie@gmail.com";
             Email from = new Email(senderEmailString); 
             
-            // Updated Subject Line Syntax Rule Configuration
+            // 2. Updated Subject Line Syntax Rule Configuration
             String subject = "Nextan Service Form for " + clientName + " REF-" + formattedRef;
             
             // Prepare the dynamic attachment link snippet if files exist
             String zipLinkHtml = "";
             boolean hasValidFiles = false;
-            ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream();
+            ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream(); // Declared ONCE globally here
             
             if (attachments != null && attachments.length > 0) {
                 try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
@@ -275,7 +275,7 @@ public class ServiceFormController {
             }
 
             if (hasValidFiles) {
-                // MATCH THE REFERENCE NUMBER: This names both the file download and the visual text link dynamically
+                // MATCH THE REFERENCE NUMBER: Names the visual text link dynamically using the reference number
                 String zipFileName = "Attachments_" + formattedRef + ".zip";
                 zipLinkHtml = "<br/><br/><a href=\"cid:archiveZipFile\" style=\"color: #2563eb; text-decoration: underline;\">" + zipFileName + "</a>";
             }
@@ -286,7 +286,7 @@ public class ServiceFormController {
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" +
-                "%s<br/><br/>" + // Injects the dynamic reference link 
+                "%s<br/><br/>" + // Injects the dynamic reference link text smoothly inside the layout block
                 "Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
@@ -307,7 +307,7 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
-            // 1. Core PDF Attachment Configuration using the clean 10-digit code
+            // Attachment 1: Core PDF Attachment Configuration using the clean 10-digit code
             String safeFileName = "Nextan_Service_Form_" + formattedRef + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
@@ -316,34 +316,18 @@ public class ServiceFormController {
             pdfAttachment.setDisposition("attachment");
             mail.addAttachments(pdfAttachment);
 
-            // 2. Attachments Packaging Rule: Combine all uploaded customer images/files into a single ZIP file
-            if (attachments != null && attachments.length > 0) {
-                boolean hasValidFiles = false;
-                ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream();
-                
-                try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
-                    for (MultipartFile file : attachments) {
-                        if (file != null && !file.isEmpty()) {
-                            hasValidFiles = true;
-                            ZipEntry entry = new ZipEntry(file.getOriginalFilename());
-                            zos.putNextEntry(entry);
-                            zos.write(file.getBytes());
-                            zos.closeEntry();
-                        }
-                    }
-                }
-                
-                if (hasValidFiles) {
-                    Attachments zipAttachment = new Attachments();
-                    zipAttachment.setContent(Base64.getEncoder().encodeToString(zipByteStream.toByteArray()));
-                    zipAttachment.setType("application/zip");
-                    zipAttachment.setFilename("Attachments_" + formattedRef + ".zip");
-                    zipAttachment.setDisposition("attachment");
-                    mail.addAttachments(zipAttachment);
-                }
+            // Attachment 2: Reuses compiled zipByteStream pipeline and sets disposition as INLINE to link with HTML cid
+            if (hasValidFiles) {
+                Attachments zipAttachment = new Attachments();
+                zipAttachment.setContent(Base64.getEncoder().encodeToString(zipByteStream.toByteArray()));
+                zipAttachment.setType("application/zip");
+                zipAttachment.setFilename("Attachments_" + formattedRef + ".zip");
+                zipAttachment.setDisposition("inline"); 
+                zipAttachment.setContentId("archiveZipFile"); 
+                mail.addAttachments(zipAttachment);
             }
 
-            // 3. EML File Construction: Compiles raw MIME copy matching the updated subject layout perfectly
+            // Attachment 3: EML File Construction matching the updated subject layout perfectly
             StringBuilder emlBuilder = new StringBuilder();
             emlBuilder.append("From: ").append(senderEmailString).append("\r\n");
             emlBuilder.append("To: ").append(String.join(", ", recipientsList)).append("\r\n");
@@ -360,7 +344,7 @@ public class ServiceFormController {
             emlAttachment.setDisposition("attachment");
             mail.addAttachments(emlAttachment);
 
-            // Execute Mail Transmission Pipeline
+            // Execute Mail Transmission Pipeline via SendGrid
             SendGrid sg = new SendGrid(sendGridApiKey);
             Request request = new Request();
             request.setMethod(Method.POST);
