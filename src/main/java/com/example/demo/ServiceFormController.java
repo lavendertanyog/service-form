@@ -7,6 +7,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -21,6 +22,14 @@ import com.sendgrid.*;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.*;
 
+// Cloudflare R2 / AWS S3 compatibility SDK imports
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.PutObjectCommand;
+
 @RestController
 @CrossOrigin(origins = "*")
 public class ServiceFormController {
@@ -33,6 +42,19 @@ public class ServiceFormController {
 
     @Value("${app.finance-emails:rebecca.goh@nextan.com.sg}")
     private String financeEmails;
+
+    // Cloudflare R2 Connection Tokens (Add these to your environment variables on Railway)
+    @Value("${R2_S3_ENDPOINT}")
+    private String r2S3Endpoint;
+
+    @Value("${R2_ACCESS_KEY_ID}")
+    private String r2AccessKeyId;
+
+    @Value("${R2_SECRET_ACCESS_KEY}")
+    private String r2SecretAccessKey;
+
+    @Value("${R2_PUBLIC_DEV_URL}")
+    private String r2PublicDevUrl;
 
     @Autowired(required = false)
     private CompanyRepository companyRepository; 
@@ -149,20 +171,19 @@ public class ServiceFormController {
 
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             
-            // 1. Clean the reference number to extract digits only, then pad to exactly 10 digits sequentially
             String digitsOnly = referenceNumber != null ? referenceNumber.replaceAll("[^0-9]", "") : "";
             String formattedRef = String.format("%10s", digitsOnly).replace(' ', '0');
 
             String senderEmailString = "eunicetanyongnie@gmail.com";
             Email from = new Email(senderEmailString); 
             
-            // 2. Updated Subject Line Syntax Rule Configuration
             String subject = "Nextan Service Form for " + clientName + " REF-" + formattedRef;
             
-            // Prepare the dynamic attachment link snippet if files exist
+            // Build the Zip stream container
             String zipLinkHtml = "";
             boolean hasValidFiles = false;
             ByteArrayOutputStream zipByteStream = new ByteArrayOutputStream();
+            String zipFileName = "Attachments_" + formattedRef + ".zip";
             
             if (attachments != null && attachments.length > 0) {
                 try (ZipOutputStream zos = new ZipOutputStream(zipByteStream)) {
@@ -180,9 +201,40 @@ public class ServiceFormController {
                 }
             }
 
+            // Cloudflare Upload Engine Routine
             if (hasValidFiles) {
-                String zipFileName = "Attachments_" + formattedRef + ".zip";
-                zipLinkHtml = "<br/><br/><a href=\"cid:archiveZipFile\" style=\"color: #2563eb; text-decoration: underline;\">" + zipFileName + "</a>";
+                try {
+                    // Create connection client instance
+                    S3Client s3Client = S3Client.builder()
+                            .endpointOverride(URI.create(r2S3Endpoint))
+                            .credentialsProvider(StaticCredentialsProvider.create(
+                                    AwsBasicCredentials.create(r2AccessKeyId, r2SecretAccessKey)
+                            ))
+                            .region(Region.US_EAST_1)
+                            .build();
+
+                    String bucketName = "nextan-service-form-attachments";
+                    byte[] zipBytes = zipByteStream.toByteArray();
+
+                    // Push binary payload straight up to your bucket cloud system
+                    s3Client.putObject(
+                            builder -> builder.bucket(bucketName).key(zipFileName).contentType("application/zip"),
+                            RequestBody.fromBytes(zipBytes)
+                    );
+
+                    // Generate clean secure public link format string layout matching your request instructions
+                    String cleanFileDownloadUrl = r2PublicDevUrl + "/" + zipFileName;
+                    zipLinkHtml = String.format(
+                        "<a href=\"%s\" style=\"color: #2563eb; font-weight: bold; text-decoration: underline;\">%s</a>", 
+                        cleanFileDownloadUrl, zipFileName
+                    );
+
+                } catch (Exception e) {
+                    System.err.println("Cloudflare Upload Failed: " + e.getMessage());
+                    e.printStackTrace();
+                    // Fallback to text indicator if file fail occurs
+                    zipLinkHtml = "[Attachment Upload Failed - Check Server System Logs]";
+                }
             }
 
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
@@ -207,12 +259,12 @@ public class ServiceFormController {
                     ".textarea-mock { min-height: 110px; line-height: 1.5; }" +
                     ".radio-container { border: 1px solid #cbd5e1; border-radius: 10px; padding: 13px 16px; background: #ffffff; }" +
                     ".radio-option { font-size: 0.95rem; font-weight: 600; color: #2563eb; }" +
-                    ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; page-break-inside: avoid !important; break-inside: avoid !important; }" +                    ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
+                    ".signature-frame { border: 1px solid #cbd5e1; border-radius: 12px; background: #ffffff; text-align: left; padding: 15px; min-height: 130px; page-break-inside: avoid !important; break-inside: avoid !important; }" +
+                    ".upload-box { border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; background: #ffffff; min-height: 40px; }" +
                     ".file-link-item { font-size: 0.95rem; color: #2563eb; font-weight: 600; text-decoration: underline; margin-bottom: 4px; display: block; }" +
                     ".no-files-text { font-size: 0.95rem; color: #64748b; font-style: italic; }" +
                     "</style></head><body>" +
                     "<div class=\"container\">" +
-                    
                     "  <table class=\"pdf-header-table\">" +
                     "    <tr>" +
                     "      <td style=\"vertical-align: middle; text-align: left; width: 20%;\">" +
@@ -227,66 +279,46 @@ public class ServiceFormController {
                     "      </td>" +
                     "    </tr>" +
                     "  </table>" +
-                    
                     "  <hr style=\"border: 0; border-top: 1px solid #f1f5f9; margin-bottom: 20px;\" />" +
                     "  <div class=\"form-body\">" +
-                    
-                    // ROW 1: Job site * & Location *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-6\"><div class=\"field-group\"><label>Job site<span>*</span></label><div class=\"input-mock\">" + jobSite + "</div></div></div>" +
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Location<span>*</span></label><div class=\"input-mock\">" + location + "</div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 2: Date of Service * & Time of Service *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-6\"><div class=\"field-group\"><label>Date of Service<span>*</span></label><div class=\"input-mock\">" + serviceDate + "</div></div></div>" +
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Time of Service<span>*</span></label><div class=\"input-mock\">" + serviceTime + "</div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 3: Service Request *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-12\"><div class=\"field-group\"><label>Service Request<span>*</span></label><div class=\"input-mock\">" + serviceRequest + "</div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 4: Service Details *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-12\"><div class=\"field-group\"><label>Service Details<span>*</span></label><div class=\"input-mock textarea-mock\">" + serviceDetails.replaceAll("\n", "<br/>") + "</div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 5: Company Name * & Customer Name *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-6\"><div class=\"field-group\"><label>Company Name<span>*</span></label><div class=\"input-mock\">" + clientOrganisation + "</div></div></div>" +
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Customer Name<span>*</span></label><div class=\"input-mock\">" + clientName + "</div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 6: Customer Email address(es) * & Technician/Engineer Email Address *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-6\"><div class=\"field-group\"><label>Customer Email address(es)<span>*</span></label><div class=\"input-mock\">" + String.join(", ", splitCustomerEmails) + "</div></div></div>" +
                     "      <div class=\"col-6-last\"><div class=\"field-group\"><label>Technician/Engineer Email Address<span>*</span></label><div class=\"input-mock\">" + staffEmails + "</div></div></div>" +
                     "    </div>" +
-
-                    // File / Image Upload Section
                     "    <div class=\"row\">" +
                     "      <div class=\"col-12\">" +
                     "        <div class=\"field-group\">" +
                     "          <label>File / Image upload</label>" +
                     "          <div class=\"upload-box\">" +
-                            (hasValidFiles ? 
-                                "<span class=\"file-link-item\">Attachments_" + formattedRef + ".zip</span>" : 
-                                "<span class=\"no-files-text\">No files uploaded</span>"
-                            ) +
+                                (hasValidFiles ? 
+                                    "<span class=\"file-link-item\">" + zipFileName + "</span>" : 
+                                    "<span class=\"no-files-text\">No files uploaded</span>"
+                                ) +
                     "          </div>" +
                     "        </div>" +
                     "      </div>" +
                     "    </div>" +
-                    
-                    // ROW 7: Invoiceable Service *
                     "    <div class=\"row\">" +
                     "      <div class=\"col-12\"><div class=\"field-group\"><label>Invoiceable Service<span>*</span></label><div class=\"radio-container\"><span class=\"radio-option\">" + ("true".equalsIgnoreCase(invoiceable) ? "● Yes" : "● No") + "</span></div></div></div>" +
                     "    </div>" +
-                    
-                    // ROW 8: Customer Signature *
-                // ROW 8: Customer Signature *
                     "    <div class=\"row\" style=\"margin-top: 10px; page-break-inside: avoid !important; break-inside: avoid !important;\">" +
                     "      <div class=\"col-12\"><div class=\"field-group\"><label>Customer Signature<span>*</span></label><div class=\"signature-frame\"><img src=\"data:image/png;base64," + cleanSignatureData + "\" style=\"max-width: 400px; height: 125px; object-fit: contain; display: block;\" /></div></div></div>" +
                     "    </div>" +
@@ -296,20 +328,21 @@ public class ServiceFormController {
                     "</body></html>";
 
             ByteArrayOutputStream os = new ByteArrayOutputStream();
-            PdfRendererBuilder builder = new PdfRendererBuilder();
-            builder.useFastMode(); 
-            builder.withHtmlContent(pdfHtmlTemplate, "/");
-            builder.toStream(os);
-            builder.run();
+            PdfRendererBuilder pdfBuilder = new PdfRendererBuilder();
+            pdfBuilder.useFastMode(); 
+            pdfBuilder.withHtmlContent(pdfHtmlTemplate, "/");
+            pdfBuilder.toStream(os);
+            pdfBuilder.run();
             byte[] pdfBytes = os.toByteArray();
 
+            // Formatted email text body setup mapping extra spacing line structure rules
             String emailBodyHtml = String.format(
                 "Dear %s from %s,<br/><br/>" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s. " + 
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" + 
-                "%s<br/>" +
+                "%s<br/>" + // <-- Passing your secure clean Cloudflare R2 link string right here
                 "<br/>Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
@@ -330,7 +363,7 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
-            // Attachment 1: Core PDF Configuration
+            // Attachment 1: Core PDF configuration remaining standard
             String safeFileName = "Nextan_Service_Form_" + formattedRef + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
@@ -339,18 +372,10 @@ public class ServiceFormController {
             pdfAttachment.setDisposition("attachment");
             mail.addAttachments(pdfAttachment);
 
-            // Attachment 2: Inline Linked ZIP Package
-            if (hasValidFiles) {
-                Attachments zipAttachment = new Attachments();
-                zipAttachment.setContent(Base64.getEncoder().encodeToString(zipByteStream.toByteArray()));
-                zipAttachment.setType("application/zip");
-                zipAttachment.setFilename("Attachments_" + formattedRef + ".zip");
-                zipAttachment.setDisposition("inline"); 
-                zipAttachment.setContentId("archiveZipFile"); 
-                mail.addAttachments(zipAttachment);
-            }
+            // Note: Native SendGrid direct raw inline zip attachment code blocks have been removed 
+            // to stop unauthenticated attachment flag payload errors from putting emails into junk.
 
-            // Attachment 3: EML Backup Layout
+            // Attachment 2: EML Backup Layout
             StringBuilder emlBuilder = new StringBuilder();
             emlBuilder.append("From: ").append(senderEmailString).append("\r\n");
             emlBuilder.append("To: ").append(String.join(", ", recipientsList)).append("\r\n");
