@@ -28,7 +28,6 @@ public class ServiceFormController {
     @Value("${ADMIN_SECRET_TOKEN:mydefaultsecrettoken}")
     private String adminSecretToken;
 
-    // Injecting the finance emails tracking parameter 
     @Value("${app.finance-emails:rebecca.goh@nextan.com.sg}")
     private String financeEmails;
 
@@ -38,12 +37,23 @@ public class ServiceFormController {
     @Autowired(required = false)
     private CustomerRepository customerRepository;
 
+    // Helper method to generate a 6-character date-stamped alphanumeric reference (e.g., NX-2605A1)
+    private String generateDateStampedReference() {
+        java.time.LocalDate now = java.time.LocalDate.now();
+        String datePrefix = now.format(java.time.format.DateTimeFormatter.ofPattern("yyMM"));
+        
+        String alphaNumericPool = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Omitted confusing letters like I, O, L
+        StringBuilder randomSuffix = new StringBuilder(2);
+        for (int i = 0; i < 2; i++) {
+            int index = (int)(alphaNumericPool.length() * Math.random());
+            randomSuffix.append(alphaNumericPool.charAt(index));
+        }
+        return "NX-" + datePrefix + randomSuffix.toString();
+    }
+
     @GetMapping("/config")
     public String getConfig() {
-        // Keeps configuration mapping clean and synchronized with standard lowercase defaults
         String staffOptionsJson = "[\"john.tan@nextan.com.sg\", \"junan.yong@nextan.com.sg\"]";
-        
-        // Fetch real data directly from the company database table layer
         String companiesJson = "[]";
         if (companyRepository != null) {
             try {
@@ -77,6 +87,9 @@ public class ServiceFormController {
             @RequestParam(value = "attachments", required = false) MultipartFile[] attachments) {
 
         try {
+            // Generate the unique tracking reference number immediately
+            String referenceNumber = generateDateStampedReference();
+
             // Database Layer Auto-Save
             if (companyRepository != null && customerRepository != null) {
                 String cleanCompanyName = clientOrganisation.trim();
@@ -131,7 +144,6 @@ public class ServiceFormController {
             }
             String displayTechnicians = technicianNames.isEmpty() ? "Not Assigned" : String.join(", ", technicianNames);
 
-            // Automatically route to custom finance configuration properties if item is invoiceable
             if ("true".equalsIgnoreCase(invoiceable) && financeEmails != null && !financeEmails.trim().isEmpty()) {
                 for (String finEmail : financeEmails.split(",")) {
                     String cleanFinEmail = finEmail.trim();
@@ -141,12 +153,13 @@ public class ServiceFormController {
                 }
             }
 
-            // Generate HTML to PDF Bytes
+            // Generate HTML to PDF Bytes (Includes the generated reference number)
             String cleanSignatureData = signatureBase64.contains(",") ? signatureBase64.split(",")[1] : signatureBase64;
             String pdfHtmlTemplate = "<!DOCTYPE html><html><head><style>" +
                     "body { font-family: 'Arial', sans-serif; color: #273142; padding: 30px; }" +
                     ".header { border-bottom: 2px solid #1f7efd; padding-bottom: 15px; margin-bottom: 30px; }" +
                     ".title { font-size: 24px; font-weight: bold; color: #0f172a; }" +
+                    ".ref-no { font-size: 14px; color: #6c7284; margin-top: 6px; }" +
                     ".field-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; margin-bottom: 15px; border-radius: 6px; }" +
                     ".label { font-size: 11px; font-weight: bold; color: #6c7284; text-transform: uppercase; margin-bottom: 5px; }" +
                     ".val { font-size: 14px; }" +
@@ -154,6 +167,7 @@ public class ServiceFormController {
                     "</style></head><body>" +
                     "<div class=\"header\">" +
                     "<div class=\"title\"><span style=\"color:#1f7efd;\">nextan</span> Service Form Summary</div>" +
+                    "<div class=\"ref-no\">Reference No: <b>" + referenceNumber + "</b></div>" +
                     "</div>" +
                     "<div class=\"field-box\"><div class=\"label\">Assigned Technician/Engineer</div><div class=\"val\">" + displayTechnicians + "</div></div>" +
                     "<div class=\"field-box\"><div class=\"label\">Company Name</div><div class=\"val\">" + clientOrganisation + "</div></div>" +
@@ -174,10 +188,11 @@ public class ServiceFormController {
             builder.run();
             byte[] pdfBytes = os.toByteArray();
 
-            // Construct HTTP API Mail Request Object
+            // Construct HTTP API Mail Request Object with reference number tagged in subject
             Email from = new Email("eunicetanyongnie@gmail.com"); 
-            String subject = "Nextan Service Form for " + clientName;
+            String subject = "[" + referenceNumber + "] Nextan Service Form for " + clientName;
             
+            // Replaced all \n formatting with HTML breaks (<br/>) to fix paragraph jumbling
             String emailBodyText = String.format(
                 "Dear %s from %s,<br/><br/>" +
                 "Please find attached a copy of the Service Sheet for the Service provided today at %s.<br/><br/>" +
@@ -204,8 +219,8 @@ public class ServiceFormController {
             mail.addContent(content);
             mail.addPersonalization(personalization);
 
-            // Attach Generated Summary PDF via Base64
-            String safeFileName = "Nextan_Service_Form_" + clientName.replaceAll("\\s+", "_") + ".pdf";
+            // Attach Generated Summary PDF via Base64 (using reference number in filename)
+            String safeFileName = "Nextan_Service_Form_" + referenceNumber + ".pdf";
             Attachments pdfAttachment = new Attachments();
             pdfAttachment.setContent(Base64.getEncoder().encodeToString(pdfBytes));
             pdfAttachment.setType("application/pdf");
@@ -213,7 +228,6 @@ public class ServiceFormController {
             pdfAttachment.setDisposition("attachment");
             mail.addAttachments(pdfAttachment);
 
-            // Process Custom UI File Upload Attachments
             if (attachments != null) {
                 for (MultipartFile file : attachments) {
                     if (!file.isEmpty()) {
@@ -227,7 +241,6 @@ public class ServiceFormController {
                 }
             }
 
-            // Execute Native HTTP Request Call
             SendGrid sg = new SendGrid(sendGridApiKey);
             Request request = new Request();
             request.setMethod(Method.POST);
