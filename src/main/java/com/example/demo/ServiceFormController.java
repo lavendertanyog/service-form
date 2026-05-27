@@ -309,8 +309,8 @@ public class ServiceFormController {
                 "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
                 "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
                 "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/>" + 
-                "<br/>%s<br/>" +
-                "Best,<br/>" +
+                "%s<br/>" +
+                "<br/>Best,<br/>" +
                 "Nextan Service Team.<br/>" +
                 "67 Ayer Rajah Crescent #04-21<br/>" +
                 "+65 6872 6423",
