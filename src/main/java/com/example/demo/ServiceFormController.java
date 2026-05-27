@@ -179,14 +179,14 @@ public class ServiceFormController {
             String subject = "Nextan Service Form for " + clientName;
             
             String emailBodyText = String.format(
-                "Dear %s from %s,\n\n" +
-                "Please find attached a copy of the Service Sheet for the Service provided today at %s.\n\n" +
-                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.\n\n" +
-                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.\n\n" +
-                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.\n\n\n" +
-                "Best,\n" +
-                "Nextan Service Team.\n\n" +
-                "67 Ayer Rajah Crescent #04-21\n" +
+                "Dear %s from %s,<br/><br/>" +
+                "Please find attached a copy of the Service Sheet for the Service provided today at %s.<br/><br/>" +
+                "If you have any questions, concerns, or disagreements regarding the contents, we kindly request that you reach out to us within the next <b><u>three</u></b> working days.<br/><br/>" +
+                "If we do not receive any communication from you within this designated time frame, we will consider the service sheet as accurate and satisfactory.<br/><br/>" +
+                "Rest assured, we remain dedicated to resolving any potential concerns you may have, even after this period.<br/><br/><br/>" +
+                "Best,<br/>" +
+                "Nextan Service Team.<br/><br/>" +
+                "67 Ayer Rajah Crescent #04-21<br/>" +
                 "+65 6872 6423",
                 clientName, clientOrganisation, jobSite
             );
