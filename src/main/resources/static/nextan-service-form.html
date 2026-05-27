@@ -71,11 +71,8 @@
     }
     .form-panel { padding: 24px 20px; }
     .form-grid { display: grid; gap: 18px; grid-template-columns: repeat(12, minmax(0, 1fr)); width: 100%; }
-    .field { display: grid; gap: 8px; position: relative; width: 100%; }
-    .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
-    .field label .required { color: var(--danger); margin-left: 3px; }
     
-   .field { 
+    .field { 
       display: flex; 
       flex-direction: column; 
       gap: 8px; 
@@ -89,8 +86,8 @@
     .field input, .field textarea, .field select {
       width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 12px;
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
-      min-height: 48px; /* Changed from fixed height to min-height */
-      height: 100%;     /* Lets the element expand to fill matching row heights */
+      min-height: 48px; 
+      height: 100%;     
       line-height: 1.2;
       -webkit-appearance: none;
       appearance: none;
@@ -326,8 +323,7 @@
     </form>
   </div>
   <script>
-
-document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', () => {
       const container = document.getElementById('emailFieldsContainer');
       const addBtn = document.getElementById('addEmailBtn');
 
@@ -384,7 +380,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let uploadedFilesAccumulator = [];
 
-    // Automatically generates a clean, live alphanumeric reference on page load
     function generateLiveReferenceNumber() {
       const now = new Date();
       const yy = String(now.getFullYear()).slice(-2);
@@ -444,7 +439,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const resizeCanvas = () => {
-      const rect = canvas.getBoundingClientRect(); canvas.width = rect.width * dpr; canvas.height = rect.height * dpr; ctx.scale(dpr, dpr); ctx.lineCap = 'round'; ctx.strokeStyle = '#111827'; ctx.lineWidth = 3;
+      canvas.style.width = '100%';
+      canvas.style.height = '210px';
+      const rect = canvas.getBoundingClientRect(); 
+      canvas.width = rect.width * dpr; 
+      canvas.height = rect.height * dpr; 
+      ctx.scale(dpr, dpr); 
+      ctx.lineCap = 'round'; 
+      ctx.strokeStyle = '#111827'; 
+      ctx.lineWidth = 3;
     };
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -508,7 +511,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         if (customerMatch) {
-          // If autocomplete matches a customer profile, isolate down back to 1 core row element
           const container = document.getElementById('emailFieldsContainer');
           const secondaryWrappers = container.querySelectorAll('.email-input-wrapper');
           secondaryWrappers.forEach((wrapper, index) => {
@@ -520,7 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
             primaryEmailInput.value = customerMatch.clientEmails || customerMatch.email || "";
           }
           
-          // Re-sync visibility state engine rules
           const remainingWrappers = container.querySelectorAll('.email-input-wrapper');
           if (remainingWrappers.length === 1) {
             remainingWrappers[0].querySelector('.remove-email-btn').style.display = 'none';
@@ -530,7 +531,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Instantly generate reference tracking token and inject into left-side bar template
       const liveRefNumber = generateLiveReferenceNumber();
       document.getElementById('formRefDisplay').textContent = liveRefNumber;
 
@@ -598,19 +598,14 @@ document.addEventListener('DOMContentLoaded', () => {
       customerInput.value = titleCase(customerInput.value.trim());
 
       const formData = new FormData(form);
-      
-      // Explicitly append pre-generated reference tracking token payload to backend endpoint pipeline
       formData.append('generatedRef', document.getElementById('formRefDisplay').textContent);
 
-      // --- NEW MULTI-EMAIL PAYLOAD CAPTURE INSERTION POINT ---
       const emailElements = document.querySelectorAll('.client-email-input');
       const emailValues = Array.from(emailElements).map(el => el.value.trim()).filter(val => val !== "");
       const totalClientEmailsString = emailValues.join(',');
       
-      // Delete single form input capture and append custom multi-string tracking stream
       formData.delete('clientEmails');
       formData.append('clientEmails', totalClientEmailsString);
-      // -------------------------------------------------------
 
       const staffEmailsArray = Array.from(selectedBoxes).map(box => box.value);
       formData.delete('staffEmails');
@@ -635,7 +630,6 @@ document.addEventListener('DOMContentLoaded', () => {
            uploadedFilesAccumulator = [];
            renderFilePreviews();
            
-           // Clean out extra added email field objects on absolute reset loop
            const container = document.getElementById('emailFieldsContainer');
            const extraWrappers = container.querySelectorAll('.email-input-wrapper');
            extraWrappers.forEach((wrapper, index) => {
