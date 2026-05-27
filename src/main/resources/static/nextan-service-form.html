@@ -75,13 +75,28 @@
     .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
     .field label .required { color: var(--danger); margin-left: 3px; }
     
+   .field { 
+      display: flex; 
+      flex-direction: column; 
+      gap: 8px; 
+      position: relative; 
+      width: 100%; 
+      justify-content: flex-start;
+    }
+    .field label { font-size: 0.95rem; color: var(--text); font-weight: 600; }
+    .field label .required { color: var(--danger); margin-left: 3px; }
+    
     .field input, .field textarea, .field select {
       width: 100%; max-width: 100%; border: 1px solid var(--border); border-radius: 12px;
       padding: 14px 16px; font-size: 0.95rem; color: var(--text); background: #fff; outline: none;
-      height: 48px; line-height: 1.2;
+      min-height: 48px; /* Changed from fixed height to min-height */
+      height: 100%;     /* Lets the element expand to fill matching row heights */
+      line-height: 1.2;
       -webkit-appearance: none;
       appearance: none;
+      box-sizing: border-box;
     }
+
     .field textarea { min-height: 130px; height: auto; resize: vertical; }
     .field input::placeholder { color: #b9bdd1; font-weight: 400; }
     .half { grid-column: span 6; }
